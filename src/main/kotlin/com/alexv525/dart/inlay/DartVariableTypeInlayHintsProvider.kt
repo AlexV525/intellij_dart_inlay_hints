@@ -72,19 +72,28 @@ private class DartVariableTypeInlayHintsCollector(
     private val sink: InlayHintsSink
 ) : FactoryInlayHintsCollector(editor) {
     
+    // Track processed offsets to avoid duplicate hints
+    private val processedOffsets = mutableSetOf<Int>()
+    
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
         // Process only the specific element, not the entire file
         val hint = PsiVariableTypeHintCalculator.calculateForElement(element)
         
         if (hint != null) {
             val (offset, hintText) = hint
-            // Add the hint at the specified offset with styling for better alignment
-            sink.addInlineElement(
-                offset = offset,
-                relatesToPrecedingText = true, // Should relate to preceding text for proper alignment
-                presentation = factory.smallText(hintText), // Use smallText for better baseline alignment
-                placeAtTheEndOfLine = false
-            )
+            
+            // Only add the hint if we haven't processed this offset yet
+            if (offset !in processedOffsets) {
+                processedOffsets.add(offset)
+                
+                // Add the hint at the specified offset with styling for better alignment
+                sink.addInlineElement(
+                    offset = offset,
+                    relatesToPrecedingText = false, // Change to false for better vertical centering
+                    presentation = factory.text(hintText), // Use regular text instead of smallText for better alignment
+                    placeAtTheEndOfLine = false
+                )
+            }
         }
         
         return true
