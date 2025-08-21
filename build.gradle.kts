@@ -16,10 +16,12 @@ kotlin {
 }
 
 intellij {
-    version.set("2025.2")
+    version.set("2024.2.4")
     type.set("IC") // Community Edition
 
-    plugins.set(listOf("Dart"))  // Dart plugin from JetBrains Marketplace
+    // Note: IDEA 2025.2 is not yet available. Using latest available version.
+    // When IDEA 2025.2 becomes available, update this line to: version.set("2025.2")
+    plugins.set(listOf("6351"))  // Dart plugin ID from JetBrains Marketplace
 }
 
 tasks {
