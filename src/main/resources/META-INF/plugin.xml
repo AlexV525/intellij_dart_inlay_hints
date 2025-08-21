@@ -20,7 +20,9 @@
   <extensions defaultExtensionNs="com.intellij">
     <codeInsight.parameterNameHints
         language="Dart"
-        implementationClass="io.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
+        implementationClass="com.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
+    <postStartupActivity
+        implementation="com.alexv525.dart.inlay.DartAnalysisListener"/>
   </extensions>
 
   <resource-bundle>messages.DartInlayBundle</resource-bundle>

@@ -10,8 +10,8 @@ required_files=(
     "build.gradle.kts"
     "settings.gradle.kts" 
     "gradle.properties"
-    "src/main/kotlin/io/alexv525/dart/inlay/DartParameterNameInlayHintsProvider.kt"
-    "src/main/kotlin/io/alexv525/dart/inlay/psi/PsiParameterNameHintCalculator.kt"
+    "src/main/kotlin/com/alexv525/dart/inlay/DartParameterNameInlayHintsProvider.kt"
+    "src/main/kotlin/com/alexv525/dart/inlay/psi/PsiParameterNameHintCalculator.kt"
     "src/main/resources/META-INF/plugin.xml"
     "src/main/resources/messages/DartInlayBundle.properties"
     "README.md"
@@ -42,7 +42,7 @@ fi
 
 # Validate plugin.xml structure
 echo "🔧 Validating plugin.xml..."
-if grep -q "io.alexv525.dart.inlay.hints" src/main/resources/META-INF/plugin.xml; then
+if grep -q "com.alexv525.dart.inlay.hints" src/main/resources/META-INF/plugin.xml; then
     echo "  ✅ Plugin ID found"
 else
     echo "  ❌ Plugin ID missing"
@@ -58,14 +58,14 @@ fi
 
 # Check Kotlin package structure
 echo "📦 Validating Kotlin package structure..."
-if grep -q "package io.alexv525.dart.inlay" src/main/kotlin/io/alexv525/dart/inlay/DartParameterNameInlayHintsProvider.kt; then
+if grep -q "package com.alexv525.dart.inlay" src/main/kotlin/com/alexv525/dart/inlay/DartParameterNameInlayHintsProvider.kt; then
     echo "  ✅ Main provider package correct"
 else
     echo "  ❌ Main provider package incorrect"
     exit 1
 fi
 
-if grep -q "package io.alexv525.dart.inlay.psi" src/main/kotlin/io/alexv525/dart/inlay/psi/PsiParameterNameHintCalculator.kt; then
+if grep -q "package com.alexv525.dart.inlay.psi" src/main/kotlin/com/alexv525/dart/inlay/psi/PsiParameterNameHintCalculator.kt; then
     echo "  ✅ PSI calculator package correct"
 else
     echo "  ❌ PSI calculator package incorrect" 
