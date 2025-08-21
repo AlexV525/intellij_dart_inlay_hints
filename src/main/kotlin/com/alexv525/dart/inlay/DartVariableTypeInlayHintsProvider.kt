@@ -72,28 +72,21 @@ private class DartVariableTypeInlayHintsCollector(
     private val sink: InlayHintsSink
 ) : FactoryInlayHintsCollector(editor) {
     
-    private var processed = false
-    
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        // Only process the file once to avoid infinite repetition
-        if (processed) return true
+        // Process only the specific element, not the entire file
+        val hint = PsiVariableTypeHintCalculator.calculateForElement(element)
         
-        val file = element.containingFile ?: return true
-        
-        // Calculate hints for the entire file (more efficient than per-element)
-        val hints = PsiVariableTypeHintCalculator.calculate(file)
-        
-        for ((offset, hintText) in hints) {
+        if (hint != null) {
+            val (offset, hintText) = hint
             // Add the hint at the specified offset
             sink.addInlineElement(
                 offset = offset,
-                relatesToPrecedingText = false, // Changed to false for proper placement
+                relatesToPrecedingText = true, // Should relate to preceding text for proper alignment
                 presentation = factory.text(hintText),
                 placeAtTheEndOfLine = false
             )
         }
         
-        processed = true
         return true
     }
 }
