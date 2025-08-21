@@ -4,9 +4,16 @@ A lightweight IntelliJ plugin that adds parameter name inlay hints for Dart code
 
 ## Requirements
 
-- IntelliJ IDEA 2024.3
+- IntelliJ IDEA 2024.2+
 - JDK 17
 - Dart plugin is automatically provisioned in the sandbox by the Gradle IntelliJ Plugin
+
+## Project Setup
+
+First, validate the project structure:
+```bash
+./validate-structure.sh
+```
 
 ## Run in a sandbox IDE
 
@@ -26,6 +33,13 @@ This starts a sandbox IDE with the Dart plugin and this plugin enabled. Open a D
 ```
 
 The ZIP will be in `build/distributions/`.
+
+## Troubleshooting
+
+If you encounter network issues when building:
+- Ensure access to JetBrains repositories (cache-redirector.jetbrains.com)
+- Some corporate/restricted networks may block these domains
+- Try using a VPN or different network environment
 
 ## Notes
 
