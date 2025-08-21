@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 package io.alexv525.dart.inlay
 
 import com.intellij.codeInsight.hints.HintInfo
@@ -12,13 +14,13 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
         if (element !is DartCallExpression) {
             return emptyList()
         }
-        
+
         // Only apply hints to .dart files
         val containingFile = element.containingFile
         if (containingFile?.virtualFile?.extension != "dart") {
             return emptyList()
         }
-        
+
         // Calculate hints specifically for this call expression
         val hints = PsiParameterNameHintCalculator.calculateForCall(element)
         return hints.map { InlayInfo(it.second, it.first) }
@@ -28,13 +30,13 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
         if (element !is DartCallExpression) {
             return null
         }
-        
+
         // Only provide hint info for .dart files
         val containingFile = element.containingFile
         if (containingFile?.virtualFile?.extension != "dart") {
             return null
         }
-        
+
         // Provide information about the function being called
         val functionName = PsiParameterNameHintCalculator.getFunctionName(element)
         return if (functionName != null) {
@@ -48,7 +50,7 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
         // Common method names that don't need parameter hints
         return setOf(
             "print",
-            "debugPrint", 
+            "debugPrint",
             "assert",
             "identical",
             "max",
