@@ -48,9 +48,13 @@ object PsiVariableTypeHintCalculator {
                     // Find position after the keyword but before the variable name
                     val keywordIndex = text.indexOf(keyword)
                     if (keywordIndex >= 0) {
+                        // Find the end of whitespace after the keyword
                         val keywordEndIndex = keywordIndex + keyword.length
-                        val offset = element.textRange.startOffset + keywordEndIndex
-                        return offset to " $formattedType"
+                        val afterKeyword = text.substring(keywordEndIndex)
+                        val whitespaceMatch = Regex("^\\s*").find(afterKeyword)
+                        val whitespaceLength = whitespaceMatch?.value?.length ?: 0
+                        val offset = element.textRange.startOffset + keywordEndIndex + whitespaceLength
+                        return offset to "$formattedType "
                     }
                 }
             }

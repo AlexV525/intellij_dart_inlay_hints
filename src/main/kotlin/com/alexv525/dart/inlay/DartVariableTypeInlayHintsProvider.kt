@@ -78,11 +78,11 @@ private class DartVariableTypeInlayHintsCollector(
         
         if (hint != null) {
             val (offset, hintText) = hint
-            // Add the hint at the specified offset
+            // Add the hint at the specified offset with styling for better alignment
             sink.addInlineElement(
                 offset = offset,
                 relatesToPrecedingText = true, // Should relate to preceding text for proper alignment
-                presentation = factory.text(hintText),
+                presentation = factory.smallText(hintText), // Use smallText for better baseline alignment
                 placeAtTheEndOfLine = false
             )
         }
