@@ -48,5 +48,5 @@ If you encounter network issues when building:
 
 - This plugin uses PSI to compute hints for positional arguments and implicitly typed variables. It avoids deeper coupling with the Dart Analysis Server.
 - Parameter name hints are shown before positional arguments in function calls.
-- Variable type hints are shown after variable names for `var`, `final`, and `late` declarations without explicit types.
+- Variable type hints are shown before variable names for `var`, `final`, and `late` declarations without explicit types (e.g., `final int age = 25`).
 - Future work may add more hint categories and optional de-noising rules.
