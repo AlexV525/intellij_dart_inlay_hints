@@ -54,6 +54,12 @@ object PsiParameterNameHintCalculator {
 
   private fun computeForCall(call: DartCallExpression, out: MutableList<Pair<Int, String>>) {
     try {
+      // Additional validation: ensure we're in a .dart file
+      val containingFile = call.containingFile
+      if (containingFile?.virtualFile?.extension != "dart") {
+        return
+      }
+      
       val args = DartPsiImplUtil.getArguments(call) ?: return
       val argList = args.argumentList ?: return
       val positionalArgs = argList.expressionList
@@ -64,7 +70,12 @@ object PsiParameterNameHintCalculator {
 
       for ((index, expr) in positionalArgs.withIndex()) {
         if (index >= params.size) break
-        val paramName = extractParamName(params[index].toString()) ?: continue
+        
+        val paramString = params[index].toString()
+        val paramName = extractParamName(paramString) ?: continue
+        
+        // Validate the extracted parameter name
+        if (paramName.isEmpty() || !isValidParameterName(paramName)) continue
 
         // Enhanced de-noising: skip when the argument name equals the parameter name
         if (shouldSkipHint(expr, paramName)) continue
@@ -76,6 +87,21 @@ object PsiParameterNameHintCalculator {
       // Silently handle any PSI-related exceptions
       // This ensures the plugin doesn't break if there are parsing issues
     }
+  }
+  
+  /**
+   * Validate that the extracted parameter name is reasonable
+   */
+  private fun isValidParameterName(name: String): Boolean {
+    // Must be a valid identifier
+    if (!name.matches(Regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
+      return false
+    }
+    
+    // Must not be a reserved word or common type
+    val reserved = setOf("int", "String", "bool", "double", "num", "dynamic", "Object", "void", 
+                         "var", "final", "const", "required", "late", "this", "super")
+    return name !in reserved
   }
   
   /**
@@ -96,13 +122,43 @@ object PsiParameterNameHintCalculator {
 
   /**
    * DartFunctionDescription parameter toString() typically looks like:
-   *   "int count" or "T item"
-   * Extract the last identifier as the parameter name.
+   *   "int count" or "T item" or "[int count]" for optional parameters
+   * Extract the parameter name, handling complex cases.
    */
   private fun extractParamName(paramString: String): String? {
     val trimmed = paramString.trim()
     if (trimmed.isEmpty()) return null
-    val parts = trimmed.split(Regex("\\s+"))
-    return parts.lastOrNull()
+    
+    // Remove brackets for optional parameters like "[int count]"
+    val withoutBrackets = trimmed.removeSurrounding("[", "]").trim()
+    if (withoutBrackets.isEmpty()) return null
+    
+    // Handle different parameter formats:
+    // - "int count" -> "count"
+    // - "required String name" -> "name"
+    // - "T item" -> "item"
+    // - "this.field" -> "field"
+    val parts = withoutBrackets.split(Regex("\\s+"))
+    
+    // Get the last part, which should be the parameter name
+    val lastPart = parts.lastOrNull()?.trim() ?: return null
+    
+    // Handle "this.field" case
+    if (lastPart.contains('.')) {
+      return lastPart.substringAfterLast('.')
+    }
+    
+    // Filter out common type keywords and modifiers
+    val filteredParts = parts.filter { part ->
+      val cleanPart = part.trim()
+      cleanPart.isNotEmpty() && 
+      !cleanPart.matches(Regex("(int|String|bool|double|num|dynamic|Object|void|var|final|const|required|late)")) &&
+      !cleanPart.startsWith("@") &&  // Skip annotations
+      !cleanPart.contains("<") &&    // Skip generic types
+      !cleanPart.contains("(")       // Skip function types
+    }
+    
+    // Return the last filtered part, or fallback to original last part
+    return filteredParts.lastOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: lastPart
   }
 }

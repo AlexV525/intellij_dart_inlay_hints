@@ -13,6 +13,12 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
             return emptyList()
         }
         
+        // Only apply hints to .dart files
+        val containingFile = element.containingFile
+        if (containingFile?.virtualFile?.extension != "dart") {
+            return emptyList()
+        }
+        
         // Calculate hints specifically for this call expression
         val hints = PsiParameterNameHintCalculator.calculateForCall(element)
         return hints.map { InlayInfo(it.second, it.first) }
@@ -20,6 +26,12 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
 
     override fun getHintInfo(element: PsiElement): HintInfo? {
         if (element !is DartCallExpression) {
+            return null
+        }
+        
+        // Only provide hint info for .dart files
+        val containingFile = element.containingFile
+        if (containingFile?.virtualFile?.extension != "dart") {
             return null
         }
         
