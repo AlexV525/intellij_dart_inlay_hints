@@ -54,7 +54,7 @@ object PsiVariableTypeHintCalculator {
                         val whitespaceMatch = Regex("^\\s*").find(afterKeyword)
                         val whitespaceLength = whitespaceMatch?.value?.length ?: 0
                         val offset = element.textRange.startOffset + keywordEndIndex + whitespaceLength
-                        return offset to "$formattedType "
+                        return offset to formattedType
                     }
                 }
             }

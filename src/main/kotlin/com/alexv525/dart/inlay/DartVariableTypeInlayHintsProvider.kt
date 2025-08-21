@@ -28,7 +28,7 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
     
     override val name: String = "Variable Type Hints"
     
-    override val previewText: String? = """
+    override val previewText: String = """
         var String name = "John";
         final int age = 25;
         late bool value = true;
@@ -45,7 +45,7 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
             return null
         }
         
-        return DartVariableTypeInlayHintsCollector(editor, sink)
+        return DartVariableTypeInlayHintsCollector(editor)
     }
     
     override fun createSettings(): NoSettings = NoSettings()
@@ -68,8 +68,7 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
  * Collector that computes and displays variable type hints.
  */
 private class DartVariableTypeInlayHintsCollector(
-    private val editor: Editor,
-    private val sink: InlayHintsSink
+    private val editor: Editor
 ) : FactoryInlayHintsCollector(editor) {
     
     // Track processed offsets to avoid duplicate hints
@@ -90,7 +89,7 @@ private class DartVariableTypeInlayHintsCollector(
                 sink.addInlineElement(
                     offset = offset,
                     relatesToPrecedingText = true, // Set to true for proper baseline alignment with surrounding text
-                    presentation = factory.smallText(hintText), // Use smallText() which is specifically designed for inlay hints and has proper baseline alignment
+                    presentation = factory.roundWithBackground(factory.smallText(hintText)), // Wrap smallText with roundWithBackground for better visual appearance
                     placeAtTheEndOfLine = false
                 )
             }
