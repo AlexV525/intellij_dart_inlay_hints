@@ -1,5 +1,5 @@
 <idea-plugin>
-  <id>io.alexv525.dart.inlay.hints</id>
+  <id>com.alexv525.dart.inlay.hints</id>
   <name>Dart Inlay Hints</name>
   <vendor email="alexv.525.li@gmail.com">Alex Li</vendor>
   <version>0.1.0</version>
@@ -20,7 +20,7 @@
   <extensions defaultExtensionNs="com.intellij">
     <codeInsight.parameterNameHints
         language="Dart"
-        implementationClass="io.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
+        implementationClass="com.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
   </extensions>
 
   <resource-bundle>messages.DartInlayBundle</resource-bundle>

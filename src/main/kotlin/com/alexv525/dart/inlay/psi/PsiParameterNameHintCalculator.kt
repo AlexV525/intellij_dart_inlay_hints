@@ -1,4 +1,4 @@
-package io.alexv525.dart.inlay.psi
+package com.alexv525.dart.inlay.psi
 
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
