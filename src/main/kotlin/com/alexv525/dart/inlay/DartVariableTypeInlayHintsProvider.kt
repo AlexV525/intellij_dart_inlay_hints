@@ -81,6 +81,7 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
 
 /**
  * Collector that computes and displays variable type hints.
+ * Includes performance optimizations and caching.
  */
 private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlayHintsCollector(editor) {
     private val textMetricsStorageKey = Key.create<InlayTextMetricsStorage>("InlayTextMetricsStorage")
@@ -90,6 +91,10 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
             get() = textMetricsStorage.getFontMetrics(true).offsetFromTop() - 2
         override val right: Int = 6
     }
+
+    // Cache for hint calculations per file modification stamp
+    private var lastModificationStamp = -1L
+    private val hintCache = mutableMapOf<Int, Pair<Int, String>?>()
 
     fun getTextMetricStorage(editor: Editor): InlayTextMetricsStorage {
         val storage = editor.getUserData(textMetricsStorageKey)
@@ -105,8 +110,32 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
     private val processedOffsets = mutableSetOf<Int>()
 
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        // Process only the specific element, not the entire file
-        val hint = PsiVariableTypeHintCalculator.calculateForElement(element)
+        // Check if we should skip processing due to dumb mode
+        if (com.intellij.openapi.project.DumbService.isDumb(element.project)) {
+            return false
+        }
+
+        val currentStamp = element.containingFile?.modificationStamp ?: 0L
+        
+        // Clear cache if file has been modified
+        if (currentStamp != lastModificationStamp) {
+            hintCache.clear()
+            processedOffsets.clear()
+            lastModificationStamp = currentStamp
+        }
+
+        // Use cached result if available
+        val elementOffset = element.textRange?.startOffset ?: return false
+        val cachedHint = hintCache[elementOffset]
+        
+        val hint = if (cachedHint != null) {
+            cachedHint
+        } else {
+            // Calculate and cache the hint
+            val calculatedHint = PsiVariableTypeHintCalculator.calculateForElement(element)
+            hintCache[elementOffset] = calculatedHint
+            calculatedHint
+        }
 
         if (hint != null) {
             val (offset, hintText) = hint
