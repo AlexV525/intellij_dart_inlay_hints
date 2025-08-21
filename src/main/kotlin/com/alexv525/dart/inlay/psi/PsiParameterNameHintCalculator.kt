@@ -71,7 +71,7 @@ object PsiParameterNameHintCalculator {
       if (isSimpleLiteral(expr.text)) continue
 
       val offset = expr.textRange.startOffset
-      out += offset to "$paramName: "
+      out += offset to paramName
     }
   }
 
