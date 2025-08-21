@@ -11,7 +11,6 @@ import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.util.messages.MessageBusConnection
 
@@ -26,7 +25,7 @@ class DartAnalysisListener : ProjectActivity {
 
     override suspend fun execute(project: Project) {
         val connection: MessageBusConnection = project.messageBus.connect()
-        
+
         // Listen for file editor events (when files are newly opened)
         connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
             override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
@@ -37,7 +36,7 @@ class DartAnalysisListener : ProjectActivity {
                 }
             }
         })
-        
+
         // Handle files that are already open when the plugin starts (e.g., from previous session)
         // This addresses the issue where previously opened files don't get hints until manually modified
         ApplicationManager.getApplication().invokeLater {
@@ -48,7 +47,7 @@ class DartAnalysisListener : ProjectActivity {
     private fun triggerInlayHintsUpdate(project: Project, file: VirtualFile) {
         val psiManager = PsiManager.getInstance(project)
         val psiFile = psiManager.findFile(file)
-        
+
         if (psiFile != null && psiFile.language.id == "Dart") {
             // Use DaemonCodeAnalyzer to restart highlighting which includes inlay hints
             DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
@@ -57,10 +56,10 @@ class DartAnalysisListener : ProjectActivity {
 
     private fun updateHintsForOpenDartFiles(project: Project) {
         if (project.isDisposed) return
-        
+
         val fileEditorManager = FileEditorManager.getInstance(project)
         val psiManager = PsiManager.getInstance(project)
-        
+
         fileEditorManager.openFiles.forEach { virtualFile ->
             if (virtualFile.extension == "dart") {
                 val psiFile = psiManager.findFile(virtualFile)

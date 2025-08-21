@@ -53,12 +53,7 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
     override fun getDefaultBlackList(): Set<String> {
         // Common method names that don't need parameter hints
         return setOf(
-            "print",
-            "debugPrint",
-            "assert",
-            "identical",
-            "max",
-            "min"
+            "print", "debugPrint", "assert", "identical", "max", "min"
         )
     }
 }

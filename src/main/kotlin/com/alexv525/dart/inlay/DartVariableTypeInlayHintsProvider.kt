@@ -23,33 +23,33 @@ import com.alexv525.dart.inlay.psi.PsiVariableTypeHintCalculator
  */
 @Suppress("UnstableApiUsage")
 class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
-    
+
     override val key: SettingsKey<NoSettings> = SettingsKey("dart.variable.type.hints")
-    
+
     override val name: String = "Variable Type Hints"
-    
+
     override val previewText: String = """
         var String name = "John";
         final int age = 25;
         late bool value = true;
     """.trimIndent()
-    
+
     override fun getCollectorFor(
-        file: PsiFile, 
-        editor: Editor, 
-        settings: NoSettings, 
+        file: PsiFile,
+        editor: Editor,
+        settings: NoSettings,
         sink: InlayHintsSink
     ): InlayHintsCollector? {
         // Only apply to .dart files
         if (file.virtualFile?.extension != "dart") {
             return null
         }
-        
+
         return DartVariableTypeInlayHintsCollector(editor)
     }
-    
+
     override fun createSettings(): NoSettings = NoSettings()
-    
+
     override fun createConfigurable(settings: NoSettings): com.intellij.codeInsight.hints.ImmediateConfigurable {
         return object : com.intellij.codeInsight.hints.ImmediateConfigurable {
             override fun createComponent(listener: com.intellij.codeInsight.hints.ChangeListener): javax.swing.JComponent {
@@ -57,9 +57,9 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
             }
         }
     }
-    
+
     override val description: String = "Show inferred type information for implicitly typed variables"
-    
+
     override val group: com.intellij.codeInsight.hints.InlayGroup
         get() = com.intellij.codeInsight.hints.InlayGroup.TYPES_GROUP
 }
@@ -67,24 +67,22 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
 /**
  * Collector that computes and displays variable type hints.
  */
-private class DartVariableTypeInlayHintsCollector(
-    private val editor: Editor
-) : FactoryInlayHintsCollector(editor) {
-    
+private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlayHintsCollector(editor) {
+
     // Track processed offsets to avoid duplicate hints
     private val processedOffsets = mutableSetOf<Int>()
-    
+
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
         // Process only the specific element, not the entire file
         val hint = PsiVariableTypeHintCalculator.calculateForElement(element)
-        
+
         if (hint != null) {
             val (offset, hintText) = hint
-            
+
             // Only add the hint if we haven't processed this offset yet
             if (offset !in processedOffsets) {
                 processedOffsets.add(offset)
-                
+
                 // Add the hint at the specified offset with proper inlay hint styling
                 sink.addInlineElement(
                     offset = offset,
@@ -94,7 +92,7 @@ private class DartVariableTypeInlayHintsCollector(
                 )
             }
         }
-        
+
         return true
     }
 }
