@@ -1,6 +1,5 @@
 package io.alexv525.dart.inlay
 
-// Temporarily using older inlay hints API for compilation test
 import com.intellij.codeInsight.hints.InlayHintsCollector
 import com.intellij.codeInsight.hints.InlayHintsProvider
 import com.intellij.codeInsight.hints.InlayHintsSink
@@ -8,6 +7,7 @@ import com.intellij.codeInsight.hints.NoSettings
 import com.intellij.lang.Language
 import com.intellij.openapi.editor.Editor
 import com.intellij.psi.PsiFile
+import io.alexv525.dart.inlay.psi.PsiParameterNameHintCalculator
 import javax.swing.JPanel
 
 class DartParameterNameInlayHintsProvider : InlayHintsProvider<NoSettings> {
@@ -23,7 +23,12 @@ class DartParameterNameInlayHintsProvider : InlayHintsProvider<NoSettings> {
   override fun createCollector(file: PsiFile, editor: Editor, settings: NoSettings, sink: InlayHintsSink): InlayHintsCollector {
     return object : InlayHintsCollector {
       override fun collect(element: com.intellij.psi.PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        // TODO: Implement when Dart plugin is available
+        val hints = PsiParameterNameHintCalculator.calculate(file)
+        for ((offset, text) in hints) {
+          if (offset >= element.textRange.startOffset && offset < element.textRange.endOffset) {
+            sink.addInlineElement(offset, false, text, false)
+          }
+        }
         return true
       }
     }

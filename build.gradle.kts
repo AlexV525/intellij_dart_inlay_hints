@@ -16,12 +16,10 @@ kotlin {
 }
 
 intellij {
-    version.set("2024.2.4")
+    version.set("2025.2")
     type.set("IC") // Community Edition
 
-    // TODO: In a real environment, would use Dart plugin from marketplace
-    // For now, compile without Dart dependency to show basic structure works
-    // plugins.set(listOf("6351"))  // Dart plugin ID from JetBrains Marketplace
+    plugins.set(listOf("Dart"))  // Dart plugin from JetBrains Marketplace
 }
 
 tasks {
