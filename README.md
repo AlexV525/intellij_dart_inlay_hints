@@ -1,7 +1,7 @@
-# Dart Inlay Hints (Parameter Names)
+# Dart Inlay Hints (Parameter Names + Variable Types)
 
 <!-- Plugin description -->
-A lightweight IntelliJ plugin that adds parameter name inlay hints for Dart code, powered by PSI and depending on the official Dart plugin.
+A lightweight IntelliJ plugin that adds parameter name inlay hints and variable type inlay hints for Dart code, powered by PSI and depending on the official Dart plugin.
 <!-- Plugin description end -->
 
 ## Requirements
@@ -27,6 +27,7 @@ This starts a sandbox IDE with the Dart plugin and this plugin enabled. Open a D
 
 - Configure Dart SDK (Settings > Languages & Frameworks > Dart).
 - Ensure Editor > Inlay Hints > Dart > "Parameter Name Hints" is enabled (enabled by default).
+- Ensure Editor > Inlay Hints > Dart > "Variable Type Hints" is enabled for type information on implicitly typed variables.
 
 ## Build a distributable
 
@@ -45,5 +46,7 @@ If you encounter network issues when building:
 
 ## Notes
 
-- This plugin uses PSI to compute hints for positional arguments. It avoids deeper coupling with the Dart Analysis Server.
+- This plugin uses PSI to compute hints for positional arguments and implicitly typed variables. It avoids deeper coupling with the Dart Analysis Server.
+- Parameter name hints are shown before positional arguments in function calls.
+- Variable type hints are shown after variable names for `var`, `final`, and `late` declarations without explicit types.
 - Future work may add more hint categories and optional de-noising rules.

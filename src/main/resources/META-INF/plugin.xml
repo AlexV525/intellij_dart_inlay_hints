@@ -4,7 +4,9 @@
   <vendor email="alexv.525.li@gmail.com">Alex Li</vendor>
   <version>0.1.0</version>
   <description><![CDATA[
-    Shows parameter name hints for Dart positional arguments.
+    Shows parameter name hints and variable type hints for Dart code.
+    Parameter name hints display the names of positional arguments.
+    Variable type hints show inferred types for implicitly typed variables.
   ]]></description>
 
   <change-notes><![CDATA[
@@ -21,6 +23,9 @@
     <codeInsight.parameterNameHints
         language="Dart"
         implementationClass="com.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
+    <codeInsight.inlayProvider
+        language="Dart"
+        implementationClass="com.alexv525.dart.inlay.DartVariableTypeInlayHintsProvider"/>
     <postStartupActivity
         implementation="com.alexv525.dart.inlay.DartAnalysisListener"/>
   </extensions>
