@@ -20,23 +20,22 @@ class DartParameterNameInlayHintsProvider : InlayHintsProvider<NoSettings> {
   override val name = "Parameter Names"
   override val previewText: String? = null
 
-  override fun createCollector(file: PsiFile, editor: Editor, settings: NoSettings, sink: InlayHintsSink): InlayHintsCollector {
+  override fun getCollectorFor(file: PsiFile, editor: Editor, settings: NoSettings, sink: InlayHintsSink): InlayHintsCollector {
     return object : InlayHintsCollector {
       override fun collect(element: com.intellij.psi.PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        val hints = PsiParameterNameHintCalculator.calculate(file)
-        for ((offset, text) in hints) {
-          if (offset >= element.textRange.startOffset && offset < element.textRange.endOffset) {
-            sink.addInlineElement(offset, false, text, false)
-          }
-        }
+        // TODO: Implement when Dart plugin is available
+        // val hints = PsiParameterNameHintCalculator.calculate(file)
+        // for ((offset, text) in hints) {
+        //   if (offset >= element.textRange.startOffset && offset < element.textRange.endOffset) {
+        //     sink.addInlineElement(offset, false, text, false)
+        //   }
+        // }
         return true
       }
     }
   }
 
   override fun createSettings() = NoSettings()
-  override fun getCollectorFor(file: PsiFile, editor: Editor, settings: NoSettings, sink: InlayHintsSink) =
-    createCollector(file, editor, settings, sink)
 
   override fun createConfigurable(settings: NoSettings) = object : com.intellij.codeInsight.hints.ImmediateConfigurable {
     override fun createComponent(listener: com.intellij.codeInsight.hints.ChangeListener) = JPanel()
