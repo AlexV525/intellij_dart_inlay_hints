@@ -6,8 +6,7 @@
   <description>Shows parameter name hints for Dart positional arguments.</description>
 
   <depends>com.intellij.modules.platform</depends>
-  <!-- TODO: Uncomment when Dart plugin is available in environment -->
-  <!-- <depends>Dart</depends> -->
+  <depends>Dart</depends>
 
   <extensions defaultExtensionNs="com.intellij">
     <!-- Using older inlay hints API for compilation test -->

@@ -12,18 +12,35 @@ class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
         if (element !is DartCallExpression) {
             return emptyList()
         }
-        val hints = PsiParameterNameHintCalculator.calculate(element.containingFile)
-        return hints
-            .filter { element.textRange.contains(it.first) }
-            .map { InlayInfo(it.second, it.first) }
+        
+        // Calculate hints specifically for this call expression
+        val hints = PsiParameterNameHintCalculator.calculateForCall(element)
+        return hints.map { InlayInfo(it.second, it.first) }
     }
 
     override fun getHintInfo(element: PsiElement): HintInfo? {
-        // TODO: Implement this method to provide more information about the hint.
-        return null
+        if (element !is DartCallExpression) {
+            return null
+        }
+        
+        // Provide information about the function being called
+        val functionName = PsiParameterNameHintCalculator.getFunctionName(element)
+        return if (functionName != null) {
+            HintInfo.MethodInfo(functionName, emptyList())
+        } else {
+            null
+        }
     }
 
     override fun getDefaultBlackList(): Set<String> {
-        return emptySet()
+        // Common method names that don't need parameter hints
+        return setOf(
+            "print",
+            "debugPrint", 
+            "assert",
+            "identical",
+            "max",
+            "min"
+        )
     }
 }

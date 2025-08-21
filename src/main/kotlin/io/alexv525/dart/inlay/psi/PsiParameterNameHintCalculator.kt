@@ -17,12 +17,6 @@ import com.intellij.psi.util.PsiTreeUtil
 object PsiParameterNameHintCalculator {
 
   fun calculate(file: PsiFile): List<Pair<Int, String>> {
-    // TODO: Uncomment when Dart plugin is available
-    // For now, return empty list to allow compilation
-//    return emptyList()
-
-    // Original implementation (commented out due to missing Dart plugin):
-
     val result = mutableListOf<Pair<Int, String>>()
     PsiTreeUtil.processElements(file) { element ->
       if (element is DartCallExpression) {
@@ -31,28 +25,73 @@ object PsiParameterNameHintCalculator {
       true
     }
     return result
-
+  }
+  
+  /**
+   * Calculate hints for a specific call expression (more efficient)
+   */
+  fun calculateForCall(call: DartCallExpression): List<Pair<Int, String>> {
+    val result = mutableListOf<Pair<Int, String>>()
+    computeForCall(call, result)
+    return result
+  }
+  
+  /**
+   * Get the function name for a call expression (used for hint info)
+   */
+  fun getFunctionName(call: DartCallExpression): String? {
+    return try {
+      // Try to get the function name from the call expression
+      val expression = call.expression
+      when (expression) {
+        is DartReferenceExpression -> expression.text
+        else -> expression?.text?.substringAfterLast('.')
+      }
+    } catch (e: Exception) {
+      null
+    }
   }
 
   private fun computeForCall(call: DartCallExpression, out: MutableList<Pair<Int, String>>) {
-    val args = DartPsiImplUtil.getArguments(call) ?: return
-    val argList = args.argumentList ?: return
-    val positionalArgs = argList.expressionList
-    if (positionalArgs.isEmpty()) return
+    try {
+      val args = DartPsiImplUtil.getArguments(call) ?: return
+      val argList = args.argumentList ?: return
+      val positionalArgs = argList.expressionList
+      if (positionalArgs.isEmpty()) return
 
-    val description = DartFunctionDescription.tryGetDescription(call) ?: return
-    val params = description.parameters
+      val description = DartFunctionDescription.tryGetDescription(call) ?: return
+      val params = description.parameters
 
-    for ((index, expr) in positionalArgs.withIndex()) {
-      if (index >= params.size) break
-      val paramName = extractParamName(params[index].toString()) ?: continue
+      for ((index, expr) in positionalArgs.withIndex()) {
+        if (index >= params.size) break
+        val paramName = extractParamName(params[index].toString()) ?: continue
 
-      // Basic de-noising: skip when the argument name equals the parameter name (e.g., foo(count))
-      if (expr is DartReferenceExpression && expr.text == paramName) continue
+        // Enhanced de-noising: skip when the argument name equals the parameter name
+        if (shouldSkipHint(expr, paramName)) continue
 
-      val offset = expr.textRange.startOffset
-      out += offset to "$paramName: "
+        val offset = expr.textRange.startOffset
+        out += offset to "$paramName: "
+      }
+    } catch (e: Exception) {
+      // Silently handle any PSI-related exceptions
+      // This ensures the plugin doesn't break if there are parsing issues
     }
+  }
+  
+  /**
+   * Enhanced logic to determine if we should skip showing a hint
+   */
+  private fun shouldSkipHint(expr: com.intellij.psi.PsiElement, paramName: String): Boolean {
+    // Skip if the argument is a reference with the same name as parameter
+    if (expr is DartReferenceExpression && expr.text == paramName) return true
+    
+    // Skip if it's a simple literal that's self-explanatory
+    val text = expr.text
+    if (text.length <= 3 && (text.matches(Regex("\\d+")) || text in setOf("true", "false", "null"))) {
+      return true
+    }
+    
+    return false
   }
 
   /**
