@@ -6,7 +6,6 @@ package com.alexv525.dart.inlay
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.Project
@@ -15,19 +14,20 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiFile
 import com.intellij.psi.PsiManager
 import com.intellij.util.messages.MessageBusConnection
-import com.jetbrains.lang.dart.analyzer.DartAnalysisServerService
 
 /**
- * Listens for Dart file opening and analysis events to trigger inlay hint updates.
- * This ensures that parameter name hints are computed immediately when Dart files are opened
- * and when analysis is ready, not just on file modifications or formatting.
+ * Listens for Dart file events and project startup to trigger inlay hint updates.
+ * This ensures that parameter name hints are computed immediately when:
+ * - Dart files are opened
+ * - Project starts with already-open Dart files (handles previous session files)
+ * - Analysis is completed (via automatic IntelliJ analysis lifecycle)
  */
 class DartAnalysisListener : ProjectActivity {
 
     override suspend fun execute(project: Project) {
         val connection: MessageBusConnection = project.messageBus.connect()
         
-        // Listen for file editor events
+        // Listen for file editor events (when files are newly opened)
         connection.subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, object : FileEditorManagerListener {
             override fun fileOpened(source: FileEditorManager, file: VirtualFile) {
                 if (file.extension == "dart") {
@@ -38,15 +38,10 @@ class DartAnalysisListener : ProjectActivity {
             }
         })
         
-        // Try to listen for Dart analysis server events if available
-        try {
-            val analysisService = DartAnalysisServerService.getInstance(project)
-            // Schedule periodic checks for analysis completion on Dart files
-            ApplicationManager.getApplication().executeOnPooledThread {
-                schedulePeriodicHintUpdates(project)
-            }
-        } catch (e: Exception) {
-            // DartAnalysisServerService might not be available, ignore
+        // Handle files that are already open when the plugin starts (e.g., from previous session)
+        // This addresses the issue where previously opened files don't get hints until manually modified
+        ApplicationManager.getApplication().invokeLater {
+            updateHintsForOpenDartFiles(project)
         }
     }
 
@@ -54,38 +49,22 @@ class DartAnalysisListener : ProjectActivity {
         val psiManager = PsiManager.getInstance(project)
         val psiFile = psiManager.findFile(file)
         
-        if (psiFile != null) {
+        if (psiFile != null && psiFile.language.id == "Dart") {
             // Use DaemonCodeAnalyzer to restart highlighting which includes inlay hints
-            ApplicationManager.getApplication().invokeLater {
-                DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
-            }
-        }
-    }
-    
-    private fun schedulePeriodicHintUpdates(project: Project) {
-        // Check for open Dart files and update hints every few seconds
-        // This provides a fallback mechanism for hint updates
-        while (!project.isDisposed) {
-            try {
-                Thread.sleep(3000) // Wait 3 seconds
-                ApplicationManager.getApplication().invokeLater {
-                    refreshInlayHintsForOpenDartFiles(project)
-                }
-            } catch (e: InterruptedException) {
-                Thread.currentThread().interrupt()
-                break
-            }
+            DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
         }
     }
 
-    private fun refreshInlayHintsForOpenDartFiles(project: Project) {
+    private fun updateHintsForOpenDartFiles(project: Project) {
+        if (project.isDisposed) return
+        
         val fileEditorManager = FileEditorManager.getInstance(project)
         val psiManager = PsiManager.getInstance(project)
         
         fileEditorManager.openFiles.forEach { virtualFile ->
             if (virtualFile.extension == "dart") {
                 val psiFile = psiManager.findFile(virtualFile)
-                if (psiFile != null) {
+                if (psiFile != null && psiFile.language.id == "Dart") {
                     // Restart analysis for the file to refresh inlay hints
                     DaemonCodeAnalyzer.getInstance(project).restart(psiFile)
                 }
