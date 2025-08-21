@@ -29,9 +29,9 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
     override val name: String = "Variable Type Hints"
     
     override val previewText: String? = """
-        var name = "John";    // : String
-        final age = 25;       // : int
-        late value = true;    // : bool
+        var String name = "John";
+        final int age = 25;
+        late bool value = true;
     """.trimIndent()
     
     override fun getCollectorFor(
@@ -72,7 +72,12 @@ private class DartVariableTypeInlayHintsCollector(
     private val sink: InlayHintsSink
 ) : FactoryInlayHintsCollector(editor) {
     
+    private var processed = false
+    
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
+        // Only process the file once to avoid infinite repetition
+        if (processed) return true
+        
         val file = element.containingFile ?: return true
         
         // Calculate hints for the entire file (more efficient than per-element)
@@ -82,12 +87,13 @@ private class DartVariableTypeInlayHintsCollector(
             // Add the hint at the specified offset
             sink.addInlineElement(
                 offset = offset,
-                relatesToPrecedingText = true,
+                relatesToPrecedingText = false, // Changed to false for proper placement
                 presentation = factory.text(hintText),
                 placeAtTheEndOfLine = false
             )
         }
         
+        processed = true
         return true
     }
 }

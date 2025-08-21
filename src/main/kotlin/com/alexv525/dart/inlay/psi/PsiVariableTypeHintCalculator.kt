@@ -61,11 +61,12 @@ object PsiVariableTypeHintCalculator {
             if (inferredType != null) {
                 val formattedType = TypePresentationUtil.formatType(inferredType)
                 if (formattedType != null && !TypePresentationUtil.isTrivialType(formattedType)) {
-                    // Find position after variable name
-                    val varNameIndex = text.indexOf(varName)
-                    if (varNameIndex >= 0) {
-                        val offset = element.textRange.startOffset + varNameIndex + varName.length
-                        out += offset to ": $formattedType"
+                    // Find position after the keyword but before the variable name
+                    val keywordIndex = text.indexOf(keyword)
+                    if (keywordIndex >= 0) {
+                        val keywordEndIndex = keywordIndex + keyword.length
+                        val offset = element.textRange.startOffset + keywordEndIndex
+                        out += offset to " $formattedType"
                     }
                 }
             }
@@ -81,11 +82,13 @@ object PsiVariableTypeHintCalculator {
             
             if (varName !in UNDERSCORE_NAMES) {
                 // For MVP, just show a generic type for for-in variables
-                val varNameIndex = text.indexOf(varName)
-                if (varNameIndex >= 0) {
-                    val offset = element.textRange.startOffset + varNameIndex + varName.length
+                var keywordIndex = text.indexOf("var")
+                if (keywordIndex < 0) keywordIndex = text.indexOf("final")
+                if (keywordIndex >= 0) {
+                    val keywordEndIndex = keywordIndex + if (text.indexOf("var") >= 0) 3 else 5 // "var" or "final"
+                    val offset = element.textRange.startOffset + keywordEndIndex
                     // For now, we'll skip for-in to keep it simple
-                    // out += offset to ": dynamic"
+                    // out += offset to " dynamic"
                 }
             }
         }
