@@ -3,10 +3,10 @@ package io.alexv525.dart.inlay.psi
 import com.intellij.psi.PsiFile
 import com.intellij.psi.util.PsiTreeUtil
 // TODO: Uncomment when Dart plugin is available in environment
-// import com.jetbrains.lang.dart.ide.info.DartFunctionDescription
-// import com.jetbrains.lang.dart.psi.DartCallExpression
-// import com.jetbrains.lang.dart.psi.DartReferenceExpression
-// import com.jetbrains.lang.dart.util.DartPsiImplUtil
+ import com.jetbrains.lang.dart.ide.info.DartFunctionDescription
+ import com.jetbrains.lang.dart.psi.DartCallExpression
+ import com.jetbrains.lang.dart.psi.DartReferenceExpression
+ import com.jetbrains.lang.dart.util.DartPsiImplUtil
 
 /**
  * PSI-only calculator for parameter name inlay hints.
@@ -19,10 +19,10 @@ object PsiParameterNameHintCalculator {
   fun calculate(file: PsiFile): List<Pair<Int, String>> {
     // TODO: Uncomment when Dart plugin is available
     // For now, return empty list to allow compilation
-    return emptyList()
-    
+//    return emptyList()
+
     // Original implementation (commented out due to missing Dart plugin):
-    /*
+
     val result = mutableListOf<Pair<Int, String>>()
     PsiTreeUtil.processElements(file) { element ->
       if (element is DartCallExpression) {
@@ -31,10 +31,9 @@ object PsiParameterNameHintCalculator {
       true
     }
     return result
-    */
+
   }
 
-  /* TODO: Uncomment when Dart plugin is available
   private fun computeForCall(call: DartCallExpression, out: MutableList<Pair<Int, String>>) {
     val args = DartPsiImplUtil.getArguments(call) ?: return
     val argList = args.argumentList ?: return
@@ -55,7 +54,6 @@ object PsiParameterNameHintCalculator {
       out += offset to "$paramName: "
     }
   }
-  */
 
   /**
    * DartFunctionDescription parameter toString() typically looks like:

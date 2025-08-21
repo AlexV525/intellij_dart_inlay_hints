@@ -1,3 +1,6 @@
+<!-- Plugin description -->
+Test plugin
+<!-- Plugin description end -->
 # Dart Inlay Hints (Parameter Names)
 
 A lightweight IntelliJ plugin that adds parameter name inlay hints for Dart code, powered by PSI and depending on the official Dart plugin.
