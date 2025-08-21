@@ -6,19 +6,14 @@
   <description>Shows parameter name hints for Dart positional arguments.</description>
 
   <depends>com.intellij.modules.platform</depends>
-  <!-- Depend on the official Dart plugin to get Dart PSI and language -->
-  <depends>Dart</depends>
+  <!-- TODO: Uncomment when Dart plugin is available in environment -->
+  <!-- <depends>Dart</depends> -->
 
   <extensions defaultExtensionNs="com.intellij">
-    <codeInsight.declarativeInlayProvider
+    <!-- Using older inlay hints API for compilation test -->
+    <codeInsight.parameterNameHints
         language="Dart"
-        implementationClass="io.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"
-        isEnabledByDefault="true"
-        group="PARAMETER_NAME_HINTS"
-        providerId="io.alexv525.dart.inlay.parameter.names"
-        bundle="messages.DartInlayBundle"
-        nameKey="dart.inlay.parameter.names.name"
-        descriptionKey="dart.inlay.parameter.names.description"/>
+        implementationClass="io.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
   </extensions>
 
   <resource-bundle>messages.DartInlayBundle</resource-bundle>
