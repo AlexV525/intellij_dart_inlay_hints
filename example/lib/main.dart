@@ -14,8 +14,32 @@ void main() {
   final foobar1 = foo.bar1;
   final foobar2 = foo.bar2;
   final foobar3 = foo.bar3;
+  
+  // Pattern/destructuring binding
   final (fb1, fb2, fb3) = foo.toRecord();
+  
+  // For-each loops
+  for (var e in <int>[1,2,3]) {
+    print(e);
+  }
+  
+  for (var s in ['a', 'b', 'c']) {
+    print(s);
+  }
+  
+  for (var item in list) {
+    print(item);
+  }
+  
+  // Underscore variables (should be suppressed)
+  var _ = 'ignored';
+  final __ = 42;
+  
+  // Dynamic type (should be suppressed if enabled)
+  var dynamic_var = getValue();
 }
+
+dynamic getValue() => 'hello';
 
 class Foo {
   const Foo(

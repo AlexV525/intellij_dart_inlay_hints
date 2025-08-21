@@ -43,6 +43,23 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
             return null
         }
 
+        // Performance safeguards
+        val dartSettings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
+        // Skip if variable type hints are disabled
+        if (!dartSettings.enableVariableTypeHints) {
+            return null
+        }
+        
+        // Skip large files
+        val fileText = file.text
+        if (fileText.length > dartSettings.maxFileSize) {
+            return null
+        }
+        
+        // Respect dumb mode - IntelliJ will handle this automatically for inlay hints
+        // but we can add explicit check if needed
+        
         return DartVariableTypeInlayHintsCollector(editor)
     }
 
