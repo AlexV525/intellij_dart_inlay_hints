@@ -86,11 +86,11 @@ private class DartVariableTypeInlayHintsCollector(
             if (offset !in processedOffsets) {
                 processedOffsets.add(offset)
                 
-                // Add the hint at the specified offset with styling for better alignment
+                // Add the hint at the specified offset with proper inlay hint styling
                 sink.addInlineElement(
                     offset = offset,
-                    relatesToPrecedingText = false, // Change to false for better vertical centering
-                    presentation = factory.text(hintText), // Use regular text instead of smallText for better alignment
+                    relatesToPrecedingText = true, // Set to true for proper baseline alignment with surrounding text
+                    presentation = factory.smallText(hintText), // Use smallText() which is specifically designed for inlay hints and has proper baseline alignment
                     placeAtTheEndOfLine = false
                 )
             }
