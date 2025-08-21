@@ -1,14 +1,13 @@
-<!-- Plugin description -->
-Displays inlay hints in Dart code.
-<!-- Plugin description end -->
 # Dart Inlay Hints (Parameter Names)
 
+<!-- Plugin description -->
 A lightweight IntelliJ plugin that adds parameter name inlay hints for Dart code, powered by PSI and depending on the official Dart plugin.
+<!-- Plugin description end -->
 
 ## Requirements
 
-- IntelliJ IDEA 2024.2+
-- JDK 17
+- IntelliJ IDEA 2025.1.3+
+- JDK 21
 - Dart plugin is automatically provisioned in the sandbox by the Gradle IntelliJ Plugin
 
 ## Project Setup
