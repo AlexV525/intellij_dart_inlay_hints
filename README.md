@@ -1,5 +1,5 @@
 <!-- Plugin description -->
-Test plugin
+Displays inlay hints in Dart code.
 <!-- Plugin description end -->
 # Dart Inlay Hints (Parameter Names)
 
