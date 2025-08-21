@@ -62,6 +62,9 @@ object PsiParameterNameHintCalculator {
       if (posIndex >= params.size) break
       val paramName = extractParamName(params[posIndex].toString()) ?: continue
 
+      // Validate the extracted parameter name
+      if (paramName.isEmpty() || !isValidParameterName(paramName)) continue
+
       // De-noising rules
       if (paramName in PARAM_NAME_BLACKLIST) continue
       if (expr is DartReferenceExpression && expr.text == paramName) continue
@@ -73,16 +76,62 @@ object PsiParameterNameHintCalculator {
   }
 
   /**
+   * Validate that the extracted parameter name is reasonable
+   */
+  private fun isValidParameterName(name: String): Boolean {
+    // Must be a valid identifier
+    if (!name.matches(Regex("[a-zA-Z_][a-zA-Z0-9_]*"))) {
+      return false
+    }
+
+    // Must not be a reserved word or common type
+    val reserved = setOf(
+      "int", "String", "bool", "double", "num", "dynamic", "Object", "void",
+      "var", "final", "const", "required", "late", "this", "super"
+    )
+    return name !in reserved
+  }
+
+  /**
    * DartFunctionDescription parameter toString() typically looks like:
-   *   "int count" or "T item" or "String? name"
-   * Extract the last identifier as the parameter name.
+   *   "int count" or "T item" or "[int count]" for optional parameters
+   * Extract the parameter name, handling complex cases.
    */
   private fun extractParamName(paramString: String): String? {
     val trimmed = paramString.trim()
     if (trimmed.isEmpty()) return null
-    // Grab the last identifier-looking token
-    val match = Regex("[A-Za-z_][A-Za-z0-9_]*$").find(trimmed) ?: return null
-    return match.value
+
+    // Remove brackets for optional parameters like "[int count]"
+    val withoutBrackets = trimmed.removeSurrounding("[", "]").trim()
+    if (withoutBrackets.isEmpty()) return null
+
+    // Handle different parameter formats:
+    // - "int count" -> "count"
+    // - "required String name" -> "name"
+    // - "T item" -> "item"
+    // - "this.field" -> "field"
+    val parts = withoutBrackets.split(Regex("\\s+"))
+
+    // Get the last part, which should be the parameter name
+    val lastPart = parts.lastOrNull()?.trim() ?: return null
+
+    // Handle "this.field" case
+    if (lastPart.contains('.')) {
+      return lastPart.substringAfterLast('.')
+    }
+
+    // Filter out common type keywords and modifiers
+    val filteredParts = parts.filter { part ->
+      val cleanPart = part.trim()
+      cleanPart.isNotEmpty() &&
+              !cleanPart.matches(Regex("(int|String|bool|double|num|dynamic|Object|void|var|final|const|required|late)")) &&
+              !cleanPart.startsWith("@") &&  // Skip annotations
+              !cleanPart.contains("<") &&    // Skip generic types
+              !cleanPart.contains("(")       // Skip function types
+    }
+
+    // Return the last filtered part, or fallback to original last part
+    return filteredParts.lastOrNull()?.trim()?.takeIf { it.isNotEmpty() } ?: lastPart
   }
 
   private fun isSimpleLiteral(text: String?): Boolean {
