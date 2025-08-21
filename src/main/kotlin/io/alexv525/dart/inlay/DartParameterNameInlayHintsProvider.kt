@@ -4,14 +4,14 @@
 
 @file:Suppress("UnstableApiUsage")
 
-package com.alexv525.dart.inlay
+package io.alexv525.dart.inlay
 
 import com.intellij.codeInsight.hints.HintInfo
 import com.intellij.codeInsight.hints.InlayInfo
 import com.intellij.codeInsight.hints.InlayParameterHintsProvider
 import com.intellij.psi.PsiElement
 import com.jetbrains.lang.dart.psi.DartCallExpression
-import com.alexv525.dart.inlay.psi.PsiParameterNameHintCalculator
+import io.alexv525.dart.inlay.psi.PsiParameterNameHintCalculator
 
 class DartParameterNameInlayHintsProvider : InlayParameterHintsProvider {
     override fun getParameterHints(element: PsiElement): List<InlayInfo> {

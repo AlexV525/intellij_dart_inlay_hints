@@ -1,5 +1,5 @@
 <idea-plugin>
-  <id>com.alexv525.dart.inlay.hints</id>
+  <id>io.alexv525.dart.inlay.hints</id>
   <name>Dart Inlay Hints</name>
   <vendor email="alexv.525.li@gmail.com">Alex Li</vendor>
   <version>0.1.0</version>
