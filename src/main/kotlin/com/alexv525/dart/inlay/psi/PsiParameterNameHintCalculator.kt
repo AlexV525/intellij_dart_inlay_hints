@@ -1,5 +1,10 @@
-package io.alexv525.dart.inlay.psi
+/*
+ * Copyright (c) 2025, Alex Li (AlexV525)
+ */
 
+package com.alexv525.dart.inlay.psi
+
+import com.intellij.psi.PsiElement
 import com.jetbrains.lang.dart.ide.info.DartFunctionDescription
 import com.jetbrains.lang.dart.psi.DartCallExpression
 import com.jetbrains.lang.dart.psi.DartReferenceExpression
@@ -93,7 +98,7 @@ object PsiParameterNameHintCalculator {
     /**
      * Enhanced logic to determine if we should skip showing a hint
      */
-    private fun shouldSkipHint(expr: com.intellij.psi.PsiElement, paramName: String): Boolean {
+    private fun shouldSkipHint(expr: PsiElement, paramName: String): Boolean {
         // Skip if the argument is a reference with the same name as parameter
         if (expr is DartReferenceExpression && expr.text == paramName) return true
 

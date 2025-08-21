@@ -1,15 +1,23 @@
 <idea-plugin>
-  <id>io.alexv525.dart.inlay.hints</id>
-  <name>Dart Inlay Hints (Parameter Names)</name>
-  <vendor email="alex@example.com">AlexV525</vendor>
+  <id>com.alexv525.dart.inlay.hints</id>
+  <name>Dart Inlay Hints</name>
+  <vendor email="alexv.525.li@gmail.com">Alex Li</vendor>
   <version>0.1.0</version>
-  <description>Shows parameter name hints for Dart positional arguments.</description>
+  <description><![CDATA[
+    Shows parameter name hints for Dart positional arguments.
+  ]]></description>
+
+  <change-notes><![CDATA[
+    <h2>0.1.0</h2>
+    <ul>
+      <li>Initial release.</li>
+    </ul>
+  ]]></change-notes>
 
   <depends>com.intellij.modules.platform</depends>
   <depends>Dart</depends>
 
   <extensions defaultExtensionNs="com.intellij">
-    <!-- Using older inlay hints API for compilation test -->
     <codeInsight.parameterNameHints
         language="Dart"
         implementationClass="io.alexv525.dart.inlay.DartParameterNameInlayHintsProvider"/>
