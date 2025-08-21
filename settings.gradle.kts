@@ -1,0 +1,1 @@
+rootProject.name = "dart-inlay-hints"
