@@ -37,25 +37,31 @@ void main() {
   final (x, y, z) =
       (1.0, true, null); // Should show: x: double, y: bool, z: Null
 
-  // For-each loops
+  // For-each loops - CRITICAL TEST CASES
+  // These test cases were specifically mentioned as broken in the PR comments
   for (var e in <int>[1, 2, 3]) {
-    // Should show: e: int
+    // Should show: int e (prefix format)
     print(e);
   }
 
-  for (var s in ['a', 'b', 'c']) {
-    // Should show: s: String
-    print(s);
-  }
-
-  for (var item in list) {
-    // Should show: item: int (from homogeneous inference)
-    print(item);
+  for (var e in 'hello'.split('')) {
+    // Should show: String e (NOT int e from previous loop - no variable caching!)
+    print(e);
   }
 
   for (var char in 'hello'.split('')) {
-    // Should show: char: String
+    // Should show: String char (was completely broken before)
     print(char);
+  }
+
+  for (var item in list) {
+    // Should show: int item (was not working)
+    print(item);
+  }
+
+  for (var s in ['a', 'b', 'c']) {
+    // Should show: String s
+    print(s);
   }
 
   // Iterable.generate for ranges (Dart way)
