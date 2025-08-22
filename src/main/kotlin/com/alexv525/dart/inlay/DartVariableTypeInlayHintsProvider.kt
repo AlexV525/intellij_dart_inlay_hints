@@ -147,7 +147,7 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
                 // Add the hint at the specified offset with proper inlay hint styling
                 sink.addInlineElement(
                     offset = offset,
-                    relatesToPrecedingText = true,
+                    relatesToPrecedingText = false,
                     presentation = createPresentation(editor, hintText),
                     placeAtTheEndOfLine = false,
                 )

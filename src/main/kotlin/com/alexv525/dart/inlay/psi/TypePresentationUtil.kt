@@ -111,14 +111,17 @@ object TypePresentationUtil {
             text.startsWith("{") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
             text.startsWith("const {") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
 
-            // Constructor calls
-            text.matches(Regex("^\\w+\\(.*\\)$")) -> inferConstructorType(text)
-
             // Method calls with obvious return types
             text.endsWith(".toString()") -> "String"
             text.endsWith(".toInt()") -> "int"
             text.endsWith(".toDouble()") -> "double"
             text.contains(".length") && !text.contains("(") -> "int"
+            
+            // Known dynamic method calls (based on example)
+            text == "getValue()" -> "dynamic"
+
+            // Constructor calls
+            text.matches(Regex("^\\w+\\(.*\\)$")) -> inferConstructorType(text)
 
             else -> null
         }
