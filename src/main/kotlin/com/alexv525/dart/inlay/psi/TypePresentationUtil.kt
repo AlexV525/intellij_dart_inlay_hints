@@ -233,10 +233,8 @@ object TypePresentationUtil {
      */
     private fun inferTypeFromConstructorPsi(call: DartCallExpression): String? {
         return when (val expression = call.expression) {
-            is DartReferenceExpression -> {
-                // Simple constructor: Foo() -> Foo
-                if (expression.children.size < 1) null else expression.firstChild?.text
-            }
+            is DartReferenceExpression -> inferTypeFromCallExpression(expression)
+
             is DartCallExpression -> {
                 // Chained call - get the root type
                 inferTypeFromConstructorPsi(expression)
@@ -251,6 +249,17 @@ object TypePresentationUtil {
                     text
                 }
             }
+        }
+    }
+
+    private fun inferTypeFromCallExpression(expression: DartReferenceExpression): String? {
+        // Simple constructor: Foo() -> Foo
+        if (expression.children.isEmpty() && expression !is DartId) {
+            return expression.text
+        }
+        return when (val child = expression.firstChild) {
+            is DartReferenceExpression -> inferTypeFromCallExpression(child)
+            else -> expression.text
         }
     }
 
