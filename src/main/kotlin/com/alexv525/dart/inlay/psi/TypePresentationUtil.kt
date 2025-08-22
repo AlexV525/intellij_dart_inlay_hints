@@ -247,11 +247,10 @@ object TypePresentationUtil {
                 extractGenericType(afterAs)
             }
             
-            // Variable references (simplified - could be enhanced with PSI)
+            // Variable references (enhanced - look up in same scope)
             text.matches(Regex("""^\w+$""")) -> {
-                // This would ideally use PSI to resolve variable types
-                // For now, return null to avoid false positives
-                null
+                // Try to find the variable definition in the same context
+                resolveVariableType(text)
             }
             
             else -> null
@@ -404,5 +403,59 @@ object TypePresentationUtil {
         } else {
             getTypeFromLiteral(trimmed)
         }
+    }
+    
+    /**
+     * Try to resolve a variable type by looking for its declaration in context
+     * This is a simplified approach that looks for basic patterns
+     */
+    private fun resolveVariableType(variableName: String): String? {
+        // This is a placeholder - in a real implementation, we'd need to:
+        // 1. Access the PSI context
+        // 2. Find variable declarations in the current scope
+        // 3. Infer the type from the declaration
+        
+        // For now, return null to avoid false positives
+        // This could be enhanced later with proper PSI traversal
+        return null
+    }
+    
+    /**
+     * Enhanced version that can resolve variable types in context
+     */
+    fun inferIterableElementTypeWithContext(iterableText: String, contextText: String? = null): String? {
+        val text = iterableText.trim()
+        
+        // First try the standard inference
+        val standardResult = inferIterableElementType(text)
+        if (standardResult != null) return standardResult
+        
+        // If it's a simple variable reference and we have context, try to resolve it
+        if (text.matches(Regex("""^\w+$""")) && contextText != null) {
+            return resolveVariableInContext(text, contextText)
+        }
+        
+        return null
+    }
+    
+    /**
+     * Simple context-based variable resolution for basic cases
+     */
+    private fun resolveVariableInContext(variableName: String, context: String): String? {
+        // Look for patterns like: final list = [1, 2, 3];
+        val varPattern = Regex("""(?:var|final|late)\s+${Regex.escape(variableName)}\s*=\s*([^;]+)""")
+        val match = varPattern.find(context)
+        
+        if (match != null) {
+            val expression = match.groupValues[1].trim()
+            val inferredType = getTypeFromLiteral(expression)
+            
+            // If it's a List<T>, extract T as the element type
+            if (inferredType != null && inferredType.startsWith("List<") && inferredType.endsWith(">")) {
+                return inferredType.substring(5, inferredType.length - 1)
+            }
+        }
+        
+        return null
     }
 }

@@ -30,10 +30,11 @@ object PsiVariableTypeHintCalculator {
         val text = element.text?.trim() ?: return null
 
         // Try different patterns in order of specificity
-        // First check if this element represents a variable identifier
+        // Use both the new individual element approach and the original context-based approach
         return calculateSimpleVariableHint(element, text)
-            ?: calculateForEachLoopHint(element, text) 
+            ?: calculateForEachLoopHint(element, text)
             ?: calculateDestructuringHint(element, text)
+            ?: calculateFromParentContext(element)
     }
 
     /**
@@ -52,7 +53,13 @@ object PsiVariableTypeHintCalculator {
         val (keyword, varName, iterableExpr) = forLoopContext
         
         // Infer element type from iterable
-        val elementType = TypePresentationUtil.inferIterableElementType(iterableExpr)
+        // Try to get broader context for variable resolution
+        var contextElement = element
+        for (i in 0..3) {
+            contextElement = contextElement.parent ?: break
+        }
+        val contextText = contextElement?.text
+        val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, contextText)
             ?: if (settings.showUnknownType) "unknown" else return null
 
         val formattedType = TypePresentationUtil.formatType(elementType) ?: return null
@@ -213,6 +220,115 @@ object PsiVariableTypeHintCalculator {
             }
             current = current.parent ?: break
         }
+        return null
+    }
+    
+    /**
+     * Fallback approach using original pattern matching with parent context
+     */
+    private fun calculateFromParentContext(element: PsiElement): Pair<Int, String>? {
+        // Try to get a broader context from parent elements
+        var current = element
+        for (i in 0..3) {
+            val contextText = current.text ?: ""
+            
+            // Try original patterns on broader context
+            val result = tryOriginalPatternMatching(current, contextText)
+            if (result != null) {
+                return result
+            }
+            
+            current = current.parent ?: break
+        }
+        
+        return null
+    }
+    
+    /**
+     * Original pattern matching approach with prefix positioning
+     */
+    private fun tryOriginalPatternMatching(element: PsiElement, text: String): Pair<Int, String>? {
+        val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
+        // For-each loop pattern
+        val forEachPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+([^)]+)\)""")
+        val forMatch = forEachPattern.find(text)
+        if (forMatch != null) {
+            val varName = forMatch.groupValues[2]
+            val iterableExpr = forMatch.groupValues[3].trim()
+            
+            if (!settings.shouldSuppressVariableName(varName)) {
+                val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, text)
+                    ?: if (settings.showUnknownType) "unknown" else return null
+                val formattedType = TypePresentationUtil.formatType(elementType) ?: return null
+                
+                if (!TypePresentationUtil.isTrivialType(formattedType) && 
+                    TypePresentationUtil.meetsComplexityRequirement(formattedType)) {
+                    
+                    // Find the variable name position in the original element
+                    val varNameIndex = text.indexOf(varName)
+                    if (varNameIndex >= 0) {
+                        val offset = element.textRange.startOffset + varNameIndex
+                        return offset to formattedType
+                    }
+                }
+            }
+        }
+        
+        // Destructuring pattern  
+        val destructurePattern = Regex("""(var|final)\s+\(([^)]+)\)\s*=\s*([^;]+)""")
+        val destMatch = destructurePattern.find(text)
+        if (destMatch != null) {
+            val variables = destMatch.groupValues[2]
+            val rhsExpression = destMatch.groupValues[3].trim()
+            val varNames = variables.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+            val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression)
+            
+            // Find hints for each variable
+            for (i in varNames.indices) {
+                val varName = varNames[i]
+                if (settings.shouldSuppressVariableName(varName)) continue
+                
+                val inferredType = inferredTypes.getOrNull(i)
+                val finalType = inferredType ?: if (settings.showUnknownType) "unknown" else continue
+                val formattedType = TypePresentationUtil.formatType(finalType) ?: continue
+                
+                if (!TypePresentationUtil.isTrivialType(formattedType) && 
+                    TypePresentationUtil.meetsComplexityRequirement(formattedType)) {
+                    
+                    val varIndex = text.indexOf(varName, text.indexOf("("))
+                    if (varIndex >= 0) {
+                        val offset = element.textRange.startOffset + varIndex
+                        return offset to formattedType
+                    }
+                }
+            }
+        }
+        
+        // Simple variable pattern
+        val varPattern = Regex("""(var|final|late)\s+(\w+)\s*=\s*([^;]+)""")
+        val varMatch = varPattern.find(text)
+        if (varMatch != null) {
+            val varName = varMatch.groupValues[2]
+            val expression = varMatch.groupValues[3].trim()
+            
+            if (!settings.shouldSuppressVariableName(varName)) {
+                val inferredType = inferTypeFromExpressionText(expression)
+                    ?: if (settings.showUnknownType) "unknown" else return null
+                val formattedType = TypePresentationUtil.formatType(inferredType) ?: return null
+                
+                if (!TypePresentationUtil.isTrivialType(formattedType) && 
+                    TypePresentationUtil.meetsComplexityRequirement(formattedType)) {
+                    
+                    val varNameIndex = text.indexOf(varName)
+                    if (varNameIndex >= 0) {
+                        val offset = element.textRange.startOffset + varNameIndex
+                        return offset to formattedType
+                    }
+                }
+            }
+        }
+        
         return null
     }
 }
