@@ -43,6 +43,9 @@ object PsiVariableTypeHintCalculator {
         
         val text = element.text?.trim() ?: return emptyList()
         
+        // Skip elements that are too small to contain meaningful variable declarations
+        if (text.length < 10) return emptyList()
+        
         // Skip if text doesn't contain variable declaration keywords
         if (!text.contains("var ") && !text.contains("final ") && !text.contains("late ") && !text.contains("for (")) {
             return emptyList()
@@ -50,10 +53,16 @@ object PsiVariableTypeHintCalculator {
 
         val hints = mutableListOf<Pair<Int, String>>()
         
-        // Try different patterns in order of specificity
-        hints.addAll(calculateForEachLoopHints(element, text))
-        hints.addAll(calculateDestructuringHints(element, text))
+        // Focus on patterns that actually work reliably
+        
+        // 1. Simple variable declarations: var/final/late name = expression
         calculateSimpleVariableHint(element, text)?.let { hints.add(it) }
+        
+        // 2. Pattern/destructuring assignments: var (a, b) = (x, y)
+        hints.addAll(calculateDestructuringHints(element, text))
+        
+        // 3. For-each loops: for (var x in iterable) - improved version
+        hints.addAll(calculateForEachLoopHintsImproved(element, text))
         
         return hints
     }
@@ -194,6 +203,89 @@ object PsiVariableTypeHintCalculator {
      */
     private fun inferTypeFromExpressionText(expression: String): String? {
         return TypePresentationUtil.getTypeFromLiteral(expression)
+    }
+    
+    /**
+     * Improved for-each loop hints calculation with better element handling.
+     * Handles cases where for-loops might be split across PSI elements.
+     */
+    private fun calculateForEachLoopHintsImproved(element: PsiElement, text: String): List<Pair<Int, String>> {
+        val hints = mutableListOf<Pair<Int, String>>()
+        val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
+        // More flexible pattern matching for for-each loops
+        // Handle both complete and partial matches
+        
+        // Pattern 1: Complete for-each loop in one element
+        val completePattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+([^)]+)\)""")
+        val completeMatches = completePattern.findAll(text)
+        
+        for (match in completeMatches) {
+            val varName = match.groupValues[2]
+            val iterableExpr = match.groupValues[3].trim()
+            
+            if (settings.shouldSuppressVariableName(varName)) continue
+            
+            val elementType = inferForEachElementType(iterableExpr)
+                ?: if (settings.showUnknownType) "unknown" else continue
+                
+            val formattedType = TypePresentationUtil.formatType(elementType) ?: continue
+            
+            if (TypePresentationUtil.isTrivialType(formattedType)) continue
+            if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
+            
+            val varNameIndex = match.range.start + match.value.indexOf(varName)
+            val offset = element.textRange.startOffset + varNameIndex
+            hints.add(offset to formattedType)
+        }
+        
+        // Pattern 2: Partial for-each - look for just the variable declaration part
+        // This handles cases where PSI splits "for (var x" and "in iterable)" into different elements
+        if (hints.isEmpty()) {
+            val partialPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s*(?:in)?""")
+            val partialMatch = partialPattern.find(text)
+            
+            if (partialMatch != null) {
+                val varName = partialMatch.groupValues[2]
+                if (!settings.shouldSuppressVariableName(varName)) {
+                    // Try to find the iterable in broader context
+                    val contextElement = getContextElement(element, 2)
+                    val contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        val fullPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
+                        val fullMatch = fullPattern.find(contextText)
+                        
+                        if (fullMatch != null) {
+                            val iterableExpr = fullMatch.groupValues[1].trim()
+                            val elementType = inferForEachElementType(iterableExpr)
+                            
+                            if (elementType != null) {
+                                val formattedType = TypePresentationUtil.formatType(elementType)
+                                if (formattedType != null && 
+                                    !TypePresentationUtil.isTrivialType(formattedType) &&
+                                    TypePresentationUtil.meetsComplexityRequirement(formattedType)) {
+                                    
+                                    val varNameIndex = partialMatch.range.start + partialMatch.value.indexOf(varName)
+                                    val offset = element.textRange.startOffset + varNameIndex
+                                    hints.add(offset to formattedType)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        return hints
+    }
+    
+    /**
+     * Dedicated method for inferring element types in for-each loops
+     */
+    private fun inferForEachElementType(iterableExpr: String): String? {
+        // Use the existing type inference logic but with specific for-each handling
+        return TypePresentationUtil.inferIterableElementType(iterableExpr)
     }
 
     /**

@@ -120,6 +120,9 @@ object TypePresentationUtil {
             // Known dynamic method calls (based on example)
             text == "getValue()" -> "dynamic"
 
+            // Property access patterns: obj.prop, this.field, etc.
+            text.contains(".") && !text.contains("(") && !text.contains("[") -> inferPropertyType(text)
+
             // Constructor calls
             text.matches(Regex("^\\w+\\(.*\\)$")) -> inferConstructorType(text)
 
@@ -462,5 +465,43 @@ object TypePresentationUtil {
         }
         
         return null
+    }
+    
+    /**
+     * Infer type from property access patterns like obj.field, this.prop
+     */
+    private fun inferPropertyType(propertyText: String): String? {
+        val text = propertyText.trim()
+        
+        // Handle common property access patterns
+        return when {
+            // Standard library properties we know about
+            text.endsWith(".length") -> "int"
+            text.endsWith(".isEmpty") -> "bool"
+            text.endsWith(".isNotEmpty") -> "bool"
+            text.endsWith(".first") -> null  // Type depends on collection
+            text.endsWith(".last") -> null   // Type depends on collection
+            
+            // Object property access: foo.bar1, foo.bar2, etc.
+            text.matches(Regex("^\\w+\\.\\w+$")) -> {
+                // We can't reliably infer without PSI context, but we can try some heuristics
+                val objectName = text.substringBefore(".")
+                val propertyName = text.substringAfter(".")
+                
+                // For the specific test case: foo.bar1, foo.bar2, foo.bar3
+                // Based on the example, these should return String types
+                // But without PSI, we can't know for sure
+                
+                // Return null for now to avoid false positives
+                // A full implementation would need proper PSI traversal to find the object type
+                // and then lookup the property type from the class definition
+                null
+            }
+            
+            // Method chaining: obj.method().prop
+            text.contains("().") -> null  // Too complex for simple text analysis
+            
+            else -> null
+        }
     }
 }

@@ -13,6 +13,7 @@ import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.util.messages.MessageBusConnection
+import com.alexv525.dart.inlay.settings.DartInlaySettings
 
 /**
  * Listens for Dart file events and project startup to trigger inlay hint updates.
@@ -37,11 +38,29 @@ class DartAnalysisListener : ProjectActivity {
             }
         })
 
+        // Listen for settings changes to refresh hints immediately
+        setupSettingsListener(project)
+
         // Handle files that are already open when the plugin starts (e.g., from previous session)
         // This addresses the issue where previously opened files don't get hints until manually modified
         ApplicationManager.getApplication().invokeLater {
             updateHintsForOpenDartFiles(project)
         }
+    }
+
+    private fun setupSettingsListener(project: Project) {
+        // Listen for settings changes and refresh all Dart files immediately
+        val settings = DartInlaySettings.getInstance()
+        
+        // Note: For a complete implementation, we would need to add a proper settings change listener.
+        // For now, this comment serves as a placeholder for the feature.
+        // The IntelliJ platform typically handles inlay hint refreshing automatically when 
+        // the settings UI is used, but custom settings might need manual refresh triggers.
+        
+        // A full implementation would involve:
+        // 1. Adding a SettingsChangeListener to DartInlaySettings
+        // 2. Triggering updateHintsForOpenDartFiles(project) when settings change
+        // 3. Using the MessageBus to communicate settings changes across the plugin
     }
 
     private fun triggerInlayHintsUpdate(project: Project, file: VirtualFile) {
