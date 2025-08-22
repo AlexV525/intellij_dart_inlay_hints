@@ -43,23 +43,6 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
             return null
         }
 
-        // Performance safeguards
-        val dartSettings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-        
-        // Skip if variable type hints are disabled
-        if (!dartSettings.enableVariableTypeHints) {
-            return null
-        }
-        
-        // Skip large files
-        val fileText = file.text
-        if (fileText.length > dartSettings.maxFileSize) {
-            return null
-        }
-        
-        // Respect dumb mode - IntelliJ will handle this automatically for inlay hints
-        // but we can add explicit check if needed
-        
         return DartVariableTypeInlayHintsCollector(editor)
     }
 
@@ -81,7 +64,6 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
 
 /**
  * Collector that computes and displays variable type hints.
- * Includes performance optimizations and caching.
  */
 private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlayHintsCollector(editor) {
     private val textMetricsStorageKey = Key.create<InlayTextMetricsStorage>("InlayTextMetricsStorage")
@@ -91,10 +73,6 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
             get() = textMetricsStorage.getFontMetrics(true).offsetFromTop() - 2
         override val right: Int = 6
     }
-
-    // Cache for hint calculations per file modification stamp
-    private var lastModificationStamp = -1L
-    private val hintCache = mutableMapOf<Int, List<Pair<Int, String>>>()
 
     fun getTextMetricStorage(editor: Editor): InlayTextMetricsStorage {
         val storage = editor.getUserData(textMetricsStorageKey)
@@ -115,37 +93,22 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
             return false
         }
 
-        val currentStamp = element.containingFile?.modificationStamp ?: 0L
-        
-        // Clear cache if file has been modified
-        if (currentStamp != lastModificationStamp) {
-            hintCache.clear()
-            processedOffsets.clear()
-            lastModificationStamp = currentStamp
-        }
-
-        // Use cached result if available
-        val elementOffset = element.textRange?.startOffset ?: return false
-        val hints = hintCache.getOrPut(elementOffset) {
-            // Calculate and cache the hints
-            PsiVariableTypeHintCalculator.calculateAllHintsForElement(element)
-        }
+        // Calculate hints for this element
+        val hints = PsiVariableTypeHintCalculator.calculateAllHintsForElement(element)
 
         // Process all hints for this element
-        var addedAnyHint = false
         for ((offset, hintText) in hints) {
             // Only add the hint if we haven't processed this offset yet
             if (offset !in processedOffsets) {
                 processedOffsets.add(offset)
 
-                // Add the hint at the specified offset with proper inlay hint styling
+                // Add the hint at the specified offset with proper inlay hint styling for PREFIX format
                 sink.addInlineElement(
                     offset = offset,
-                    relatesToPrecedingText = false,
+                    relatesToPrecedingText = false,  // PREFIX hints go before the text
                     presentation = createPresentation(editor, hintText),
                     placeAtTheEndOfLine = false,
                 )
-                addedAnyHint = true
             }
         }
 

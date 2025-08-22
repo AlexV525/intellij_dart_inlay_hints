@@ -11,12 +11,11 @@ import com.intellij.psi.PsiComment
  * PSI-only calculator for variable type inlay hints.
  * Strategy:
  * - Find variable declarations using generic PSI traversal
- * - Use text-based heuristics for type inference (MVP approach)
- * - Emit hints as " Type" before variable identifier
+ * - Use text-based heuristics for type inference
+ * - Emit hints as "Type " before variable identifier (prefix format)
+ * - Handle all patterns: simple vars, destructuring, for-each loops
  */
 object PsiVariableTypeHintCalculator {
-
-    private val UNDERSCORE_NAMES = setOf("_", "__", "___")
 
     /**
      * Calculate variable type hint for a specific element.
@@ -37,24 +36,28 @@ object PsiVariableTypeHintCalculator {
         // Skip if variable type hints are disabled
         if (!settings.enableVariableTypeHints) return emptyList()
         
-        // CRITICAL FIX: Skip comments entirely to prevent parsing issues
+        // Skip comments entirely to prevent parsing issues
         if (element is PsiComment || isInsideComment(element)) {
             return emptyList()
         }
         
         val text = element.text?.trim() ?: return emptyList()
+        
+        // Skip if text doesn't contain variable declaration keywords
+        if (!text.contains("var ") && !text.contains("final ") && !text.contains("late ") && !text.contains("for (")) {
+            return emptyList()
+        }
 
-        // Try different patterns in order of specificity
         val hints = mutableListOf<Pair<Int, String>>()
         
-        calculateForEachLoopHint(element, text)?.let { hints.add(it) }
-        hints.addAll(calculateAllDestructuringHints(element, text))
+        // Try different patterns in order of specificity
+        hints.addAll(calculateForEachLoopHints(element, text))
+        hints.addAll(calculateDestructuringHints(element, text))
         calculateSimpleVariableHint(element, text)?.let { hints.add(it) }
         
         return hints
     }
 
-    
     /**
      * Check if the element is inside a comment
      */
@@ -70,66 +73,58 @@ object PsiVariableTypeHintCalculator {
     }
 
     /**
-     * Calculate hint for for-each loop variables: for (var x in iterable)
+     * Calculate hints for for-each loop variables: for (var x in iterable)
      */
-    private fun calculateForEachLoopHint(element: PsiElement, text: String): Pair<Int, String>? {
+    private fun calculateForEachLoopHints(element: PsiElement, text: String): List<Pair<Int, String>> {
+        val hints = mutableListOf<Pair<Int, String>>()
+        val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
         // Pattern: for (var identifier in expression)
         val forEachPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+([^)]+)\)""")
-        val match = forEachPattern.find(text)
+        val matches = forEachPattern.findAll(text)
 
-        if (match != null) {
+        for (match in matches) {
             val varName = match.groupValues[2]
             val iterableExpr = match.groupValues[3].trim()
 
             // Apply settings-based filtering
-            val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-            if (settings.shouldSuppressVariableName(varName)) return null
+            if (settings.shouldSuppressVariableName(varName)) continue
 
-            // Try to get broader context for variable resolution
-            var contextElement = element
-            for (i in 0..2) {
-                contextElement = contextElement.parent ?: break
-            }
+            // Get broader context for variable resolution
+            val contextElement = getContextElement(element, 3)
             val contextText = contextElement?.text
 
             // Infer element type from iterable
             val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, contextText ?: text)
-                ?: if (settings.showUnknownType) "unknown" else return null
+                ?: if (settings.showUnknownType) "unknown" else continue
 
-            val formattedType = TypePresentationUtil.formatType(elementType) ?: return null
+            val formattedType = TypePresentationUtil.formatType(elementType) ?: continue
             
             // Check suppression and complexity requirements
-            if (TypePresentationUtil.isTrivialType(formattedType)) return null
-            if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) return null
+            if (TypePresentationUtil.isTrivialType(formattedType)) continue
+            if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
 
             // Find position before variable name for prefix placement
-            val varNameIndex = text.indexOf(varName)
-            if (varNameIndex >= 0) {
-                val offset = element.textRange.startOffset + varNameIndex
-                return offset to formattedType
-            }
+            val varNameIndex = match.range.start + match.value.indexOf(varName)
+            val offset = element.textRange.startOffset + varNameIndex
+            hints.add(offset to formattedType)
         }
 
-        return null
+        return hints
     }
 
     /**
-     * Calculate hint for pattern/destructuring assignments: var (a, b) = (1, 's')
+     * Calculate hints for pattern/destructuring assignments: var (a, b) = (1, 's')
      */
-    private fun calculateDestructuringHint(element: PsiElement, text: String): Pair<Int, String>? {
-        val hints = calculateAllDestructuringHints(element, text)
-        return hints.firstOrNull()
-    }
-
-    /**
-     * Calculate all hints for pattern/destructuring assignments: var (a, b) = (1, 's')
-     */
-    private fun calculateAllDestructuringHints(element: PsiElement, text: String): List<Pair<Int, String>> {
+    private fun calculateDestructuringHints(element: PsiElement, text: String): List<Pair<Int, String>> {
+        val hints = mutableListOf<Pair<Int, String>>()
+        val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
         // Pattern: (var|final) (name1, name2, ...) = expression
         val destructurePattern = Regex("""(var|final)\s+\(([^)]+)\)\s*=\s*([^;]+);?""")
-        val match = destructurePattern.find(text)
+        val matches = destructurePattern.findAll(text)
 
-        if (match != null) {
+        for (match in matches) {
             val variables = match.groupValues[2]
             val rhsExpression = match.groupValues[3].trim()
 
@@ -140,9 +135,6 @@ object PsiVariableTypeHintCalculator {
             val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression)
             
             // Create hints for each variable
-            val hints = mutableListOf<Pair<Int, String>>()
-            val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-            
             for (i in varNames.indices) {
                 val varName = varNames[i]
                 if (settings.shouldSuppressVariableName(varName)) continue
@@ -155,55 +147,46 @@ object PsiVariableTypeHintCalculator {
                 if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
 
                 // Find position before this variable name for prefix placement
-                val varIndex = text.indexOf(varName, text.indexOf("("))
-                if (varIndex >= 0) {
-                    val offset = element.textRange.startOffset + varIndex
-                    hints.add(offset to formattedType)
-                }
+                val varIndex = match.range.start + match.value.indexOf(varName, match.value.indexOf("("))
+                val offset = element.textRange.startOffset + varIndex
+                hints.add(offset to formattedType)
             }
-            
-            return hints
         }
 
-        return emptyList()
+        return hints
     }
 
     /**
      * Calculate hint for simple variable declarations: var name = expression
      */
     private fun calculateSimpleVariableHint(element: PsiElement, text: String): Pair<Int, String>? {
+        val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
+        
         // Look for simple variable declarations
         // Pattern: (var|final|late) identifier = expression;
         val varPattern = Regex("""(var|final|late)\s+(\w+)\s*=\s*([^;]+);?""")
-        val match = varPattern.find(text)
+        val match = varPattern.find(text) ?: return null
 
-        if (match != null) {
-            val varName = match.groupValues[2]
-            val expression = match.groupValues[3].trim()
+        val varName = match.groupValues[2]
+        val expression = match.groupValues[3].trim()
 
-            // Apply settings-based filtering
-            val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-            if (settings.shouldSuppressVariableName(varName)) return null
+        // Apply settings-based filtering
+        if (settings.shouldSuppressVariableName(varName)) return null
 
-            // Try to infer type from expression
-            val inferredType = inferTypeFromExpressionText(expression)
-                ?: if (settings.showUnknownType) "unknown" else return null
+        // Try to infer type from expression
+        val inferredType = inferTypeFromExpressionText(expression)
+            ?: if (settings.showUnknownType) "unknown" else return null
 
-            val formattedType = TypePresentationUtil.formatType(inferredType) ?: return null
-            
-            // Check suppression and complexity requirements  
-            if (TypePresentationUtil.isTrivialType(formattedType)) return null
-            if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) return null
+        val formattedType = TypePresentationUtil.formatType(inferredType) ?: return null
+        
+        // Check suppression and complexity requirements  
+        if (TypePresentationUtil.isTrivialType(formattedType)) return null
+        if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) return null
 
-            // Find position before variable name for prefix placement
-            val varNameIndex = text.indexOf(varName)
-            if (varNameIndex >= 0) {
-                val offset = element.textRange.startOffset + varNameIndex
-                return offset to formattedType
-            }
-        }
-
-        return null
+        // Find position before variable name for prefix placement
+        val varNameIndex = match.range.start + match.value.indexOf(varName)
+        val offset = element.textRange.startOffset + varNameIndex
+        return offset to formattedType
     }
 
     /**
@@ -211,5 +194,16 @@ object PsiVariableTypeHintCalculator {
      */
     private fun inferTypeFromExpressionText(expression: String): String? {
         return TypePresentationUtil.getTypeFromLiteral(expression)
+    }
+
+    /**
+     * Get context element by traversing up the PSI tree
+     */
+    private fun getContextElement(element: PsiElement, levels: Int): PsiElement? {
+        var current = element
+        repeat(levels) {
+            current = current.parent ?: return current
+        }
+        return current
     }
 }
