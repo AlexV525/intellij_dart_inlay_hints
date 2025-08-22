@@ -229,8 +229,9 @@ object PsiVariableTypeHintCalculator {
         val hints = mutableListOf<Pair<Int, String>>()
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
         
-        // Single pattern approach: Look for complete for-each loops in the current element
-        val forEachPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+([^)]+)\)""")
+        // Single pattern approach: Look for complete for-each loops in the current element only
+        // Use non-greedy matching to properly handle nested parentheses like 'hello'.split('')
+        val forEachPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+(.+?)\s*\)\s*\{""")
         val matches = forEachPattern.findAll(text)
         
         for (match in matches) {
@@ -253,45 +254,6 @@ object PsiVariableTypeHintCalculator {
             val varNameIndex = match.range.start + match.value.indexOf(varName)
             val offset = element.textRange.startOffset + varNameIndex
             hints.add(offset to formattedType)
-        }
-        
-        // Fallback: Handle PSI fragmentation by looking for variables with immediate context check
-        if (hints.isEmpty()) {
-            // Look for variable declaration patterns: var/final variableName
-            val varPattern = Regex("""\b(var|final)\s+(\w+)\b""")
-            val varMatches = varPattern.findAll(text)
-            
-            for (varMatch in varMatches) {
-                val varName = varMatch.groupValues[2]
-                if (settings.shouldSuppressVariableName(varName)) continue
-                
-                // Only check immediate parent context (1-2 levels) to prevent cross-contamination
-                val parentContext = getContextElement(element, 2)?.text ?: element.parent?.text
-                
-                if (parentContext != null) {
-                    // Look for for-each pattern with this exact variable in the immediate context
-                    val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
-                    val contextMatch = contextPattern.find(parentContext)
-                    
-                    if (contextMatch != null) {
-                        val iterableExpr = contextMatch.groupValues[1].trim()
-                        val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, parentContext)
-                        
-                        if (elementType != null) {
-                            val formattedType = TypePresentationUtil.formatType(elementType)
-                            if (formattedType != null && 
-                                !TypePresentationUtil.isTrivialType(formattedType) &&
-                                TypePresentationUtil.meetsComplexityRequirement(formattedType)) {
-                                
-                                val varNameIndex = varMatch.range.start + varMatch.value.indexOf(varName)
-                                val offset = element.textRange.startOffset + varNameIndex
-                                hints.add(offset to formattedType)
-                                break // Only add one hint per variable
-                            }
-                        }
-                    }
-                }
-            }
         }
         
         return hints
