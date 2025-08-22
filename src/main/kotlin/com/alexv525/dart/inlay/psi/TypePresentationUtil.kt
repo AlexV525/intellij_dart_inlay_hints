@@ -560,32 +560,183 @@ object TypePresentationUtil {
     }
     
     /**
-     * Check if a call expression is a factory constructor
+     * Check if a call expression is a factory constructor using PSI analysis
      */
     private fun isFactoryConstructor(callExpr: DartCallExpression): Boolean {
-        val text = callExpr.text
-        // Common patterns for factory constructors
-        return text.matches(Regex("""^\w+\.\w+\(.*\)$""")) || // MyClass.namedConstructor()
-               text.matches(Regex("""^\w+\(.*\)$"""))          // MyClass()
+        // Get the reference being called
+        val expression = callExpr.expression
+        
+        when (expression) {
+            is DartReferenceExpression -> {
+                // Simple constructor call like MyClass() or named like MyClass.create()
+                val referenceName = expression.text
+                
+                // Find the constructor declaration
+                val constructorDeclaration = findConstructorDeclaration(callExpr, referenceName)
+                return constructorDeclaration != null && isFactoryDeclaration(constructorDeclaration)
+            }
+            else -> {
+                // For complex expressions, analyze the text to extract the constructor pattern
+                val text = callExpr.text
+                return isConstructorPatternAndFactory(text, callExpr)
+            }
+        }
     }
     
     /**
-     * Resolve factory constructor type
+     * Resolve factory constructor type using PSI analysis
      */
     private fun resolveFactoryConstructorType(callExpr: DartCallExpression): String? {
         val expression = callExpr.expression
-        val text = expression?.text ?: return null
         
-        return when {
-            text.contains(".") -> {
-                // Named constructor: MyClass.namedConstructor() -> MyClass
-                text.substringBefore(".")
+        when (expression) {
+            is DartReferenceExpression -> {
+                val referenceName = expression.text
+                return extractClassNameFromConstructor(referenceName)
             }
             else -> {
-                // Simple constructor: MyClass() -> MyClass
-                text
+                // Fallback to text analysis if PSI structure is complex
+                val text = expression?.text ?: return null
+                return extractClassNameFromConstructor(text)
             }
         }
+    }
+    
+    /**
+     * Extract class name from constructor reference
+     */
+    private fun extractClassNameFromConstructor(constructorRef: String): String? {
+        return when {
+            constructorRef.contains(".") -> {
+                // Named constructor: MyClass.namedConstructor -> MyClass
+                constructorRef.substringBefore(".")
+            }
+            constructorRef.matches(Regex("""^\w+$""")) -> {
+                // Simple constructor: MyClass -> MyClass
+                constructorRef
+            }
+            else -> null
+        }
+    }
+    
+    /**
+     * Find constructor declaration PSI element using manual traversal
+     */
+    private fun findConstructorDeclaration(context: PsiElement, constructorRef: String): PsiElement? {
+        val className = extractClassNameFromConstructor(constructorRef)
+        if (className == null) return null
+        
+        // Find the class declaration first
+        val classDeclaration = findClassDeclaration(context, className)
+        if (classDeclaration == null) return null
+        
+        // Look for the constructor within the class
+        return findConstructorInClass(classDeclaration, constructorRef)
+    }
+    
+    /**
+     * Find specific constructor in class definition using PSI analysis
+     */
+    private fun findConstructorInClass(classDeclaration: PsiElement, constructorRef: String): PsiElement? {
+        val constructorName = if (constructorRef.contains(".")) {
+            // Named constructor: MyClass.create -> create
+            constructorRef.substringAfter(".")
+        } else {
+            // Default constructor - look for the class name or no name
+            constructorRef
+        }
+        
+        // Manual traversal to find constructor declarations
+        val constructors = mutableListOf<PsiElement>()
+        collectConstructorDeclarations(classDeclaration, constructors)
+        
+        return constructors.find { constructor ->
+            isMatchingConstructor(constructor, constructorName)
+        }
+    }
+    
+    /**
+     * Collect constructor declarations manually using PSI traversal
+     */
+    private fun collectConstructorDeclarations(element: PsiElement, result: MutableList<PsiElement>) {
+        // Check if this element is a constructor declaration
+        if (isConstructorDeclaration(element)) {
+            result.add(element)
+        }
+        
+        // Recursively traverse children
+        for (child in element.children) {
+            collectConstructorDeclarations(child, result)
+        }
+    }
+    
+    /**
+     * Check if PSI element represents a constructor declaration
+     */
+    private fun isConstructorDeclaration(element: PsiElement): Boolean {
+        val text = element.text ?: return false
+        
+        // Look for constructor patterns:
+        // - factory MyClass()
+        // - external factory MyClass()
+        // - MyClass()
+        // - factory MyClass.namedConstructor()
+        // - external factory MyClass.namedConstructor()
+        return text.trimStart().let { trimmed ->
+            trimmed.startsWith("factory ") ||
+            trimmed.startsWith("external factory ") ||
+            // Regular constructors (class name followed by parentheses)
+            trimmed.matches(Regex("""^\w+\s*\([^)]*\)""")) ||
+            // Named constructors
+            trimmed.matches(Regex("""^\w+\.\w+\s*\([^)]*\)"""))
+        }
+    }
+    
+    /**
+     * Check if a constructor declaration is a factory constructor
+     */
+    private fun isFactoryDeclaration(constructorElement: PsiElement): Boolean {
+        val text = constructorElement.text ?: return false
+        val trimmed = text.trimStart()
+        
+        return trimmed.startsWith("factory ") || trimmed.startsWith("external factory ")
+    }
+    
+    /**
+     * Check if constructor matches the given name
+     */
+    private fun isMatchingConstructor(constructor: PsiElement, constructorName: String): Boolean {
+        val text = constructor.text ?: return false
+        
+        return when {
+            constructorName.contains(".") -> {
+                // Named constructor
+                text.contains(constructorName)
+            }
+            else -> {
+                // Default constructor - match class name or just check if it's the main constructor
+                text.contains("$constructorName(") || 
+                // For factory constructors that might not include class name in the method
+                (text.contains("factory") && !text.contains("."))
+            }
+        }
+    }
+    
+    /**
+     * Analyze constructor pattern from text and check if it's a factory
+     */
+    private fun isConstructorPatternAndFactory(text: String, context: PsiElement): Boolean {
+        // Extract the constructor reference pattern
+        val constructorPattern = Regex("""^(\w+(?:\.\w+)?)\(.*\)$""")
+        val match = constructorPattern.find(text.trim())
+        
+        if (match != null) {
+            val constructorRef = match.groupValues[1]
+            val constructorDeclaration = findConstructorDeclaration(context, constructorRef)
+            return constructorDeclaration != null && isFactoryDeclaration(constructorDeclaration)
+        }
+        
+        return false
     }
 
     /**

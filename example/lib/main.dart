@@ -25,6 +25,12 @@ void main() {
   String explicitName = "Jane";
   int explicitAge = 18;
 
+  // Factory constructors - CRITICAL TEST CASES
+  final widget1 = Widget.create('title1'); // Should show: widget1: Widget
+  final widget2 = Widget.fromJson({}); // Should show: widget2: Widget
+  final widget3 = Widget.withDefaults(); // Should show: widget3: Widget
+  final externalWidget = ExternalWidget.build(); // Should show: externalWidget: ExternalWidget
+
   // Constructor calls
   final foo = Foo('bar1', bar2: 'bar2', bar3: 'bar3'); // Should show: foo: Foo
   final foobar1 = foo.bar1; // Would need PSI for proper inference
@@ -105,4 +111,36 @@ class Foo {
   final String? bar3;
 
   (String, String, String?) toRecord() => (bar1, bar2, bar3);
+}
+
+// Example classes with factory constructors to test PSI-based detection
+class Widget {
+  final String title;
+  
+  Widget._(this.title);
+  
+  // Regular factory constructor
+  factory Widget.create(String title) {
+    return Widget._(title);
+  }
+  
+  // Factory constructor with Map parameter
+  factory Widget.fromJson(Map<String, dynamic> json) {
+    return Widget._(json['title'] ?? 'default');
+  }
+  
+  // Factory constructor without parameters
+  factory Widget.withDefaults() {
+    return Widget._('default title');
+  }
+}
+
+// External factory constructor example
+class ExternalWidget {
+  final String id;
+  
+  ExternalWidget._(this.id);
+  
+  // External factory constructor - this is the critical case that wasn't working
+  external factory ExternalWidget.build();
 }
