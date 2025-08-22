@@ -184,6 +184,7 @@ object TypePresentationUtil {
     /**
      * Infer type from constructor calls
      */
+    // TODO: Use PSI element to verify if it's an actual constructor. Otherwise Foo.bar() could create Bar.
     private fun inferConstructorType(constructorText: String): String? {
         val constructorName = constructorText.substringBefore("(")
 
@@ -220,15 +221,6 @@ object TypePresentationUtil {
             // Simple list literals with homogeneous content
             text.startsWith("[") && text.endsWith("]") -> {
                 inferHomogeneousListElementType(text)
-            }
-
-            // Range expressions: 0..10, 'a'..'z'
-            text.contains("..") -> {
-                when {
-                    text.matches(Regex("""\d+\.\.\d+""")) -> "int"
-                    text.matches(Regex("""'[a-zA-Z]'\.\.'[a-zA-Z]'""")) -> "String"
-                    else -> null
-                }
             }
 
             // String methods that return iterables
@@ -269,14 +261,15 @@ object TypePresentationUtil {
      */
     private fun extractIterableGeneric(text: String): String? {
         return when {
+            // TODO: Check from actual elements with PSI.
             text.contains("Iterable.generate") -> {
                 // Iterable.generate(count, generator) - try to infer from generator
                 val match = Regex("""Iterable\.generate\([^,]+,\s*\(.*\)\s*=>\s*([^)]+)\)""").find(text)
                 if (match != null) {
                     val generatorExpr = match.groupValues[1].trim()
-                    getTypeFromLiteral(generatorExpr) ?: "int"  // Default to int for index-based
+                    getTypeFromLiteral(generatorExpr)
                 } else {
-                    "int"  // Common case
+                    null
                 }
             }
             text.contains("Iterable.empty") -> null  // No useful type info
@@ -291,6 +284,7 @@ object TypePresentationUtil {
     private fun handleListGenerate(text: String): String? {
         return when {
             text.contains("List<") -> extractGenericType(text)
+            // TODO: Check from elements PSI.
             else -> null
         }
     }
@@ -335,6 +329,7 @@ object TypePresentationUtil {
                 parseRecordComponents(content)
             }
 
+            // TODO: Check from PSI.
             else -> emptyList()
         }
     }
@@ -399,6 +394,7 @@ object TypePresentationUtil {
      * This is a simplified approach that looks for basic patterns
      */
     private fun resolveVariableType(variableName: String): String? {
+        // TODO: Implement with PSI.
         // This is a placeholder - in a real implementation, we'd need to:
         // 1. Access the PSI context
         // 2. Find variable declarations in the current scope
@@ -469,19 +465,11 @@ object TypePresentationUtil {
                 val objectName = text.substringBefore(".")
                 val propertyName = text.substringAfter(".")
 
-                // For the specific test case: foo.bar1, foo.bar2, foo.bar3
-                // Based on the example, these should return String types
-                // But without PSI, we can't know for sure
-
-                // Return null for now to avoid false positives
-                // A full implementation would need proper PSI traversal to find the object type
-                // and then lookup the property type from the class definition
+                // TODO: Read their types from PSI.
                 null
             }
 
-            // Method chaining: obj.method().prop
-            text.contains("().") -> null  // Too complex for simple text analysis
-
+            // TODO: Make more cases available.
             else -> null
         }
     }
