@@ -105,8 +105,8 @@ object PsiVariableTypeHintCalculator {
             // Parse variable names
             val varNames = variables.split(",").map { it.trim() }.filter { it.isNotEmpty() }
             
-            // Infer types from RHS expression
-            val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression)
+            // Infer types from RHS expression with PSI context
+            val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression, element)
             
             // Create hints for each variable
             for (i in varNames.indices) {
@@ -167,8 +167,8 @@ object PsiVariableTypeHintCalculator {
      * Enhanced type inference that uses PSI context when available
      */
     private fun inferTypeFromExpressionTextWithContext(expression: String, element: PsiElement): String? {
-        // First try the basic inference
-        val basicType = TypePresentationUtil.getTypeFromLiteral(expression)
+        // First try the enhanced inference with PSI context
+        val basicType = TypePresentationUtil.getTypeFromLiteral(expression, element)
         if (basicType != null) return basicType
         
         // For property access patterns, try to use context
@@ -241,8 +241,8 @@ object PsiVariableTypeHintCalculator {
             if (settings.shouldSuppressVariableName(varName)) continue
             
             // Infer element type from the iterable expression 
-            // Use only the current element's context to avoid cross-contamination
-            val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, text)
+            // Use PSI context and current element's context to avoid cross-contamination
+            val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, text, element)
                 ?: if (settings.showUnknownType) "unknown" else continue
                 
             val formattedType = TypePresentationUtil.formatType(elementType) ?: continue
