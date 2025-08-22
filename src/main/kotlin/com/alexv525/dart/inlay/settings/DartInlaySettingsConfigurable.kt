@@ -11,6 +11,11 @@ import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBUI
+import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.psi.PsiManager
 import javax.swing.*
 import javax.swing.border.TitledBorder
 
@@ -124,6 +129,36 @@ class DartInlaySettingsConfigurable : SearchableConfigurable {
         settings.minComplexity = minComplexity.selectedIndex
         settings.blacklist = blacklistField.text.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         settings.maxFileSize = maxFileSize.number
+        
+        // Trigger refresh of inlay hints for all open Dart files
+        refreshInlayHintsForAllDartFiles()
+    }
+    
+    /**
+     * Refresh inlay hints for all open Dart files immediately when settings change
+     */
+    private fun refreshInlayHintsForAllDartFiles() {
+        ApplicationManager.getApplication().invokeLater {
+            val projects = ProjectManager.getInstance().openProjects
+            
+            for (project in projects) {
+                if (project.isDisposed) continue
+                
+                val fileEditorManager = FileEditorManager.getInstance(project)
+                val psiManager = PsiManager.getInstance(project)
+                val analyzer = DaemonCodeAnalyzer.getInstance(project)
+                
+                fileEditorManager.openFiles.forEach { virtualFile ->
+                    if (virtualFile.extension == "dart") {
+                        val psiFile = psiManager.findFile(virtualFile)
+                        if (psiFile != null && psiFile.language.id == "Dart") {
+                            // Restart analysis to refresh inlay hints
+                            analyzer.restart(psiFile)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun reset() {
