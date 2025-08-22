@@ -3,3 +3,6 @@ publish_to: none
 
 environment:
   sdk: ^3.0.0
+
+dependencies:
+  decimal: ^3.0.0

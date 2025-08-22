@@ -6,6 +6,7 @@ package com.alexv525.dart.inlay.psi
 
 import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiComment
+import com.jetbrains.lang.dart.psi.*
 
 /**
  * PSI-only calculator for variable type inlay hints.
@@ -67,7 +68,14 @@ object PsiVariableTypeHintCalculator {
         
         // 3. For-each loops: for (var x in iterable) - improved version
         hints.addAll(calculateForEachLoopHintsImproved(element, text))
-        
+
+        // 4. Specific PSI impls recognition
+        if (element is DartVarDeclarationList) {
+            val callExpression = element.lastChild.children[0]
+            val expressionText = callExpression.text
+            calculateSimpleVariableHint(callExpression, expressionText)?.let { hints.add(it) }
+        }
+
         return hints
     }
 

@@ -125,7 +125,7 @@ object TypePresentationUtil {
             text.contains(".") && !text.contains("(") && !text.contains("[") -> inferPropertyType(text, psiContext)
 
             // Constructor calls
-            text.matches(Regex("^\\w+\\(.*\\)$")) -> inferConstructorType(text, psiContext)
+            text.matches(Regex("^\\w+(\\.\\w+)?\\(.*\\)$")) -> inferConstructorType(text, psiContext)
 
             else -> null
         }
@@ -235,7 +235,7 @@ object TypePresentationUtil {
         return when (val expression = call.expression) {
             is DartReferenceExpression -> {
                 // Simple constructor: Foo() -> Foo
-                expression.text
+                if (expression.children.size < 1) null else expression.firstChild?.text
             }
             is DartCallExpression -> {
                 // Chained call - get the root type

@@ -1,4 +1,5 @@
 // ignore_for_file: unused_elements, unused_local_variable
+import 'package:decimal/decimal.dart';
 
 void main() {
   // Basic variable declarations
@@ -7,11 +8,14 @@ void main() {
   final age1 = 25.0; // Should show: age1: double
   final list = [1, 2, 3]; // Should show: list: List<int>
   final bigInt = BigInt.from(1); // Should show: bigint: BigInt
+  final decimal = Decimal.fromInt(1);
 
   // Enhanced collection types
   var stringList = ['a', 'b', 'c']; // Should show: stringList: List<String>
   final mixedList = [1, 'b', true]; // Should show: mixedList: List (no generic)
   var emptyList = <String>[]; // Should show: emptyList: List<String>
+  final emptyListFromConstructor =
+      List.empty(); // Should show: emptyListFromConstructor: List (no generic)
   final numbers = <int>[1, 2, 3]; // Should show: numbers: List<int>
 
   // Map and Set examples
@@ -29,7 +33,8 @@ void main() {
   final widget1 = Widget.create('title1'); // Should show: widget1: Widget
   final widget2 = Widget.fromJson({}); // Should show: widget2: Widget
   final widget3 = Widget.withDefaults(); // Should show: widget3: Widget
-  final externalWidget = ExternalWidget.build(); // Should show: externalWidget: ExternalWidget
+  final externalWidget =
+      ExternalWidget.build(); // Should show: externalWidget: ExternalWidget
 
   // Constructor calls
   final foo = Foo('bar1', bar2: 'bar2', bar3: 'bar3'); // Should show: foo: Foo
@@ -116,19 +121,19 @@ class Foo {
 // Example classes with factory constructors to test PSI-based detection
 class Widget {
   final String title;
-  
+
   Widget._(this.title);
-  
+
   // Regular factory constructor
   factory Widget.create(String title) {
     return Widget._(title);
   }
-  
+
   // Factory constructor with Map parameter
   factory Widget.fromJson(Map<String, dynamic> json) {
     return Widget._(json['title'] ?? 'default');
   }
-  
+
   // Factory constructor without parameters
   factory Widget.withDefaults() {
     return Widget._('default title');
@@ -138,9 +143,9 @@ class Widget {
 // External factory constructor example
 class ExternalWidget {
   final String id;
-  
+
   ExternalWidget._(this.id);
-  
+
   // External factory constructor - this is the critical case that wasn't working
   external factory ExternalWidget.build();
 }
