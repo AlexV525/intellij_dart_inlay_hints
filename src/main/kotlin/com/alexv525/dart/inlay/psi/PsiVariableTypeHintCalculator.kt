@@ -306,16 +306,44 @@ object PsiVariableTypeHintCalculator {
                 val varName = varMatch.groupValues[2]
                 if (settings.shouldSuppressVariableName(varName)) continue
                 
-                // Try to find if this is part of a for-each loop in broader context
-                val contextElement = getContextElement(element, 5) // increased context levels
-                val contextText = contextElement?.text ?: ""
+                // Search for the most relevant for-each context by trying progressively smaller contexts first
+                var contextMatch: MatchResult? = null
+                var iterableExpr: String? = null
+                var contextText: String? = null
                 
-                // Look for for-each pattern with this variable name in context
-                val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
-                val contextMatch = contextPattern.find(contextText)
+                // Try smaller contexts first (2-4 levels) to find the most relevant loop
+                for (contextLevel in 2..4) {
+                    val contextElement = getContextElement(element, contextLevel)
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        // Look for for-each pattern with this variable name in current context level
+                        val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
+                        contextMatch = contextPattern.find(contextText)
+                        
+                        if (contextMatch != null) {
+                            iterableExpr = contextMatch.groupValues[1].trim()
+                            break // Use the closest context match
+                        }
+                    }
+                }
                 
-                if (contextMatch != null) {
-                    val iterableExpr = contextMatch.groupValues[1].trim()
+                // If no match in smaller contexts, try broader context as fallback
+                if (contextMatch == null) {
+                    val contextElement = getContextElement(element, 5) // reduced from original broader search
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
+                        contextMatch = contextPattern.find(contextText)
+                        if (contextMatch != null) {
+                            iterableExpr = contextMatch.groupValues[1].trim()
+                        }
+                    }
+                }
+                
+                // Only proceed if we found a relevant context  
+                if (contextMatch != null && iterableExpr != null && contextText != null) {
                     val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, contextText)
                     
                     if (elementType != null) {
@@ -339,16 +367,45 @@ object PsiVariableTypeHintCalculator {
         if (hints.isEmpty() && text.matches(Regex("""^\s*\w+\s*$"""))) {
             val varName = text.trim()
             if (!settings.shouldSuppressVariableName(varName)) {
-                // Look in broader context for this variable being used in a for-each loop
-                val contextElement = getContextElement(element, 7) // even broader context
-                val contextText = contextElement?.text ?: ""
+                // Look for the most relevant for-each context by searching in progressively smaller contexts first
+                // This prevents picking up unrelated for-each loops with the same variable name
+                var contextMatch: MatchResult? = null
+                var iterableExpr: String? = null
+                var contextText: String? = null
                 
-                // Look for for-each pattern with this variable name in context
-                val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
-                val contextMatch = contextPattern.find(contextText)
+                // Try smaller contexts first (2-4 levels) to find the most relevant loop
+                for (contextLevel in 2..4) {
+                    val contextElement = getContextElement(element, contextLevel)
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        // Look for for-each pattern with this variable name in current context level
+                        val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
+                        contextMatch = contextPattern.find(contextText)
+                        
+                        if (contextMatch != null) {
+                            iterableExpr = contextMatch.groupValues[1].trim()
+                            break // Use the closest context match
+                        }
+                    }
+                }
                 
-                if (contextMatch != null) {
-                    val iterableExpr = contextMatch.groupValues[1].trim()
+                // If no match in smaller contexts, try broader context as fallback
+                if (contextMatch == null) {
+                    val contextElement = getContextElement(element, 7)
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        val contextPattern = Regex("""for\s*\(\s*(?:var|final)\s+${Regex.escape(varName)}\s+in\s+([^)]+)\)""")
+                        contextMatch = contextPattern.find(contextText)
+                        if (contextMatch != null) {
+                            iterableExpr = contextMatch.groupValues[1].trim()
+                        }
+                    }
+                }
+                
+                // Only proceed if we found a relevant context
+                if (contextMatch != null && iterableExpr != null && contextText != null) {
                     val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, contextText)
                     
                     if (elementType != null) {
@@ -374,14 +431,36 @@ object PsiVariableTypeHintCalculator {
             if (inMatch != null) {
                 val iterableExpr = inMatch.groupValues[1].trim()
                 
-                // Try to find the corresponding variable in broader context
-                val contextElement = getContextElement(element, 5)
-                val contextText = contextElement?.text ?: ""
+                // Search for the corresponding variable in progressively smaller contexts first
+                var forVarMatch: MatchResult? = null
+                var contextText: String? = null
                 
-                val forVarPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+${Regex.escape(iterableExpr)}\)""")
-                val forVarMatch = forVarPattern.find(contextText)
+                // Try smaller contexts first to find the most relevant variable declaration
+                for (contextLevel in 2..4) {
+                    val contextElement = getContextElement(element, contextLevel)
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        val forVarPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+${Regex.escape(iterableExpr)}\)""")
+                        forVarMatch = forVarPattern.find(contextText)
+                        if (forVarMatch != null) {
+                            break // Use the closest context match
+                        }
+                    }
+                }
                 
-                if (forVarMatch != null) {
+                // If no match in smaller contexts, try broader context as fallback
+                if (forVarMatch == null) {
+                    val contextElement = getContextElement(element, 5) // reduced from original
+                    contextText = contextElement?.text
+                    
+                    if (contextText != null) {
+                        val forVarPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+${Regex.escape(iterableExpr)}\)""")
+                        forVarMatch = forVarPattern.find(contextText)
+                    }
+                }
+                
+                if (forVarMatch != null && contextText != null) {
                     val varName = forVarMatch.groupValues[2]
                     if (!settings.shouldSuppressVariableName(varName)) {
                         val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, contextText)
@@ -394,10 +473,13 @@ object PsiVariableTypeHintCalculator {
                                 // Find the variable position in the broader context
                                 val varInContextPattern = Regex("""for\s*\(\s*(?:var|final)\s+(\w+)""")
                                 val varPositionMatch = varInContextPattern.find(contextText)
-                                if (varPositionMatch != null && varPositionMatch.groupValues[1] == varName && contextElement != null) {
-                                    val varStartInMatch = varPositionMatch.range.start + varPositionMatch.value.indexOf(varName)
-                                    val offset = contextElement.textRange.startOffset + varStartInMatch
-                                    hints.add(offset to formattedType)
+                                if (varPositionMatch != null && varPositionMatch.groupValues[1] == varName) {
+                                    val contextElement = getContextElement(element, 2) // Use smaller context for positioning
+                                    if (contextElement != null) {
+                                        val varStartInMatch = varPositionMatch.range.start + varPositionMatch.value.indexOf(varName)
+                                        val offset = contextElement.textRange.startOffset + varStartInMatch
+                                        hints.add(offset to formattedType)
+                                    }
                                 }
                             }
                         }
