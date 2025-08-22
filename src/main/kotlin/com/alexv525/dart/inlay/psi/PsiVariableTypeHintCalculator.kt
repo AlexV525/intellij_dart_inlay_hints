@@ -23,22 +23,35 @@ object PsiVariableTypeHintCalculator {
      * Returns (offset, hint_text) pair or null if no hint should be shown.
      */
     fun calculateForElement(element: PsiElement): Pair<Int, String>? {
+        val hints = calculateAllHintsForElement(element)
+        return hints.firstOrNull()
+    }
+
+    /**
+     * Calculate all variable type hints for a specific element.
+     * Returns list of (offset, hint_text) pairs.
+     */
+    fun calculateAllHintsForElement(element: PsiElement): List<Pair<Int, String>> {
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
         
         // Skip if variable type hints are disabled
-        if (!settings.enableVariableTypeHints) return null
+        if (!settings.enableVariableTypeHints) return emptyList()
         
         // CRITICAL FIX: Skip comments entirely to prevent parsing issues
         if (element is PsiComment || isInsideComment(element)) {
-            return null
+            return emptyList()
         }
         
-        val text = element.text?.trim() ?: return null
+        val text = element.text?.trim() ?: return emptyList()
 
         // Try different patterns in order of specificity
-        return calculateForEachLoopHint(element, text) 
-            ?: calculateDestructuringHint(element, text)
-            ?: calculateSimpleVariableHint(element, text)
+        val hints = mutableListOf<Pair<Int, String>>()
+        
+        calculateForEachLoopHint(element, text)?.let { hints.add(it) }
+        hints.addAll(calculateAllDestructuringHints(element, text))
+        calculateSimpleVariableHint(element, text)?.let { hints.add(it) }
+        
+        return hints
     }
 
     
@@ -104,6 +117,14 @@ object PsiVariableTypeHintCalculator {
      * Calculate hint for pattern/destructuring assignments: var (a, b) = (1, 's')
      */
     private fun calculateDestructuringHint(element: PsiElement, text: String): Pair<Int, String>? {
+        val hints = calculateAllDestructuringHints(element, text)
+        return hints.firstOrNull()
+    }
+
+    /**
+     * Calculate all hints for pattern/destructuring assignments: var (a, b) = (1, 's')
+     */
+    private fun calculateAllDestructuringHints(element: PsiElement, text: String): List<Pair<Int, String>> {
         // Pattern: (var|final) (name1, name2, ...) = expression
         val destructurePattern = Regex("""(var|final)\s+\(([^)]+)\)\s*=\s*([^;]+);?""")
         val match = destructurePattern.find(text)
@@ -119,6 +140,7 @@ object PsiVariableTypeHintCalculator {
             val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression)
             
             // Create hints for each variable
+            val hints = mutableListOf<Pair<Int, String>>()
             val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
             
             for (i in varNames.indices) {
@@ -136,12 +158,14 @@ object PsiVariableTypeHintCalculator {
                 val varIndex = text.indexOf(varName, text.indexOf("("))
                 if (varIndex >= 0) {
                     val offset = element.textRange.startOffset + varIndex
-                    return offset to formattedType
+                    hints.add(offset to formattedType)
                 }
             }
+            
+            return hints
         }
 
-        return null
+        return emptyList()
     }
 
     /**

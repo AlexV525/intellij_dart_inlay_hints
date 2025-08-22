@@ -94,7 +94,7 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
 
     // Cache for hint calculations per file modification stamp
     private var lastModificationStamp = -1L
-    private val hintCache = mutableMapOf<Int, Pair<Int, String>?>()
+    private val hintCache = mutableMapOf<Int, List<Pair<Int, String>>>()
 
     fun getTextMetricStorage(editor: Editor): InlayTextMetricsStorage {
         val storage = editor.getUserData(textMetricsStorageKey)
@@ -126,20 +126,14 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
 
         // Use cached result if available
         val elementOffset = element.textRange?.startOffset ?: return false
-        val cachedHint = hintCache[elementOffset]
-        
-        val hint = if (cachedHint != null) {
-            cachedHint
-        } else {
-            // Calculate and cache the hint
-            val calculatedHint = PsiVariableTypeHintCalculator.calculateForElement(element)
-            hintCache[elementOffset] = calculatedHint
-            calculatedHint
+        val hints = hintCache.getOrPut(elementOffset) {
+            // Calculate and cache the hints
+            PsiVariableTypeHintCalculator.calculateAllHintsForElement(element)
         }
 
-        if (hint != null) {
-            val (offset, hintText) = hint
-
+        // Process all hints for this element
+        var addedAnyHint = false
+        for ((offset, hintText) in hints) {
             // Only add the hint if we haven't processed this offset yet
             if (offset !in processedOffsets) {
                 processedOffsets.add(offset)
@@ -151,6 +145,7 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
                     presentation = createPresentation(editor, hintText),
                     placeAtTheEndOfLine = false,
                 )
+                addedAnyHint = true
             }
         }
 
