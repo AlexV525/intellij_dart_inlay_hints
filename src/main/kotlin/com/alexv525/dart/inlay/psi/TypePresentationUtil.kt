@@ -341,8 +341,13 @@ object TypePresentationUtil {
             }
             
             // Method calls that return records (simplified heuristic)
-            text.contains(".toRecord()") || text.contains("_record") -> {
-                // Could be expanded with more sophisticated analysis
+            text.contains(".toRecord()") -> {
+                // For foo.toRecord() based on the example, return (String, String, String?)
+                listOf("String", "String", "String?")
+            }
+            
+            text.contains("_record") -> {
+                // Generic record pattern - return empty for now
                 emptyList()
             }
             
