@@ -6,6 +6,7 @@ void main() {
   final age = 25; // Should show: age: int
   final age1 = 25.0; // Should show: age1: double
   final list = [1, 2, 3]; // Should show: list: List<int>
+  final bigInt = BigInt.from(1); // Should show: bigint: BigInt
 
   // Enhanced collection types
   var stringList = ['a', 'b', 'c']; // Should show: stringList: List<String>
