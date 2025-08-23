@@ -36,7 +36,12 @@ object PsiVariableTypeHintCalculator {
         
         // Skip if variable type hints are disabled
         if (!settings.enableVariableTypeHints) return emptyList()
-        
+
+        // Skip predicating the whole Dart file.
+        if (element is DartFile) {
+            return emptyList()
+        }
+
         // Skip comments entirely to prevent parsing issues
         if (element is PsiComment || isInsideComment(element)) {
             return emptyList()
