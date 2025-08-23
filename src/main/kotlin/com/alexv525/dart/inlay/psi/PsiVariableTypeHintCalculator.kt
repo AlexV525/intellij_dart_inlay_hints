@@ -80,6 +80,10 @@ object PsiVariableTypeHintCalculator {
             val expressionText = callExpression.text
             calculateSimpleVariableHint(callExpression, expressionText)?.let { hints.add(it) }
         }
+        if (element is DartVarAccessDeclaration) {
+            val callExpression = (element.parent as? DartVarDeclarationList)?.varInit?.expression
+            callExpression?.let { e -> calculateSimpleVariableHint(e, e.text)?.let { hints.add(it) } }
+        }
 
         return hints
     }
