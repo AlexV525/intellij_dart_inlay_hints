@@ -79,7 +79,7 @@ object TypePresentationUtil {
      * Returns null if type cannot be confidently determined.
      */
     fun getTypeFromLiteral(literalText: String, psiContext: PsiElement? = null): String? {
-        val text = literalText.trim()
+        val text = literalText.trim().replace("\n", "")
 
         val type = when {
             // String literals
@@ -102,19 +102,13 @@ object TypePresentationUtil {
             text.matches(Regex("^\\d+\\.\\d*$")) -> "double"  // 1. or 1.0
 
             // Collection literals - enhanced detection
-            text.startsWith("[") && text.endsWith("]") -> inferListType(text)
-            text.startsWith("const [") && text.endsWith("]") -> inferListType(text)
-            text.matches(Regex("^(<\\w*>)?\\[]$")) -> inferListType(text)
+            text.matches(Regex("^(const )?(<\\w*>)?\\[.*$")) && text.endsWith("]") -> inferListType(text)
 
             // Map literals
-            text.startsWith("{") && text.endsWith("}") && text.contains(":") -> inferMapType(text)
-            text.startsWith("const {") && text.endsWith("}") && text.contains(":") -> inferMapType(text)
-            text.matches(Regex("^(<\\w*,\\s*\\w*>)?\\{}$")) -> inferMapType(text)
+            text.matches(Regex("^(const )?(<\\w*,\\s*\\w*>)?\\{.*$")) && text.endsWith("}") -> inferMapType(text)
 
             // Set literals
-            text.startsWith("{") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
-            text.startsWith("const {") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
-            text.matches(Regex("^(<\\w*>)?\\{}$")) -> inferSetType(text)
+            text.matches(Regex("^(const )?(<\\w*>)?\\{.*$")) && text.endsWith("}") -> inferSetType(text)
 
             // Method calls with obvious return types
             text.endsWith(".toString()") -> "String"
