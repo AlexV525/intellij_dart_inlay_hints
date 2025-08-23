@@ -83,7 +83,7 @@ object TypePresentationUtil {
     fun getTypeFromLiteral(literalText: String, psiContext: PsiElement? = null): String? {
         val text = literalText.trim()
 
-        return when {
+        val type = when {
             // String literals
             text.startsWith('"') && text.endsWith('"') -> "String"
             text.startsWith("'") && text.endsWith("'") -> "String"
@@ -106,14 +106,17 @@ object TypePresentationUtil {
             // Collection literals - enhanced detection
             text.startsWith("[") && text.endsWith("]") -> inferListType(text)
             text.startsWith("const [") && text.endsWith("]") -> inferListType(text)
+            text.matches(Regex("^(<\\w*>)?\\[]$")) -> inferListType(text)
 
             // Map literals
             text.startsWith("{") && text.endsWith("}") && text.contains(":") -> inferMapType(text)
             text.startsWith("const {") && text.endsWith("}") && text.contains(":") -> inferMapType(text)
+            text.matches(Regex("^(<\\w*,\\s*\\w*>)?\\{}$")) -> inferMapType(text)
 
             // Set literals
             text.startsWith("{") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
             text.startsWith("const {") && text.endsWith("}") && !text.contains(":") -> inferSetType(text)
+            text.matches(Regex("^(<\\w*>)?\\{}$")) -> inferSetType(text)
 
             // Method calls with obvious return types
             text.endsWith(".toString()") -> "String"
@@ -138,6 +141,9 @@ object TypePresentationUtil {
         val content = listText.removePrefix("const ").removePrefix("[").removeSuffix("]").trim()
         if (content.isEmpty()) return "List"
 
+        val generics = Regex("^(<\\w+>)\\[").find(content)?.groups?.get(1)?.value
+        if (generics != null) return "List<${generics.removePrefix("<").removeSuffix(">").trim()}>"
+
         val elementType = inferHomogeneousListElementType("[$content]")
         return if (elementType != null) "List<$elementType>" else "List"
     }
@@ -148,6 +154,11 @@ object TypePresentationUtil {
     private fun inferMapType(mapText: String): String {
         val content = mapText.removePrefix("const ").removePrefix("{").removeSuffix("}").trim()
         if (content.isEmpty()) return "Map"
+
+        val generics = Regex("^(<\\w+,\\s*\\w+>)\\{").find(content)?.groups?.get(1)?.value
+        if (generics != null) return generics.removePrefix("<").removeSuffix(">").split(",").let {
+            "Map<${it.first().trim()}, ${it.last().trim()}>"
+        }
 
         // Simple heuristic - look for homogeneous key-value pairs
         val pairs = content.split(",").map { it.trim() }.filter { it.contains(":") }
@@ -173,6 +184,9 @@ object TypePresentationUtil {
     private fun inferSetType(setText: String): String {
         val content = setText.removePrefix("const ").removePrefix("{").removeSuffix("}").trim()
         if (content.isEmpty()) return "Set"
+
+        val generics = Regex("^(<\\w+>)\\[").find(content)?.groups?.get(1)?.value
+        if (generics != null) return "Set<${generics.removePrefix("<").removeSuffix(">").trim()}>"
 
         val elements = content.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         if (elements.isNotEmpty()) {
