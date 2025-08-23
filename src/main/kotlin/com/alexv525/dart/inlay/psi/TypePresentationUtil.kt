@@ -62,8 +62,7 @@ object TypePresentationUtil {
      * Now delegates to settings for more sophisticated control.
      */
     fun isTrivialType(typeName: String?): Boolean {
-        return com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-            .shouldSuppressType(typeName)
+        return com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance().shouldSuppressType(typeName)
     }
 
     /**
@@ -232,7 +231,7 @@ object TypePresentationUtil {
     private fun findConstructorCallInContext(context: PsiElement, constructorText: String): DartCallExpression? {
         val callExpressions = mutableListOf<DartCallExpression>()
         collectCallExpressions(context, callExpressions)
-        
+
         return callExpressions.find { call ->
             call.text.trim() == constructorText.trim()
         }
@@ -245,7 +244,7 @@ object TypePresentationUtil {
         if (element is DartCallExpression) {
             result.add(element)
         }
-        
+
         for (child in element.children) {
             collectCallExpressions(child, result)
         }
@@ -262,6 +261,7 @@ object TypePresentationUtil {
                 // Chained call - get the root type
                 inferTypeFromConstructorPsi(expression)
             }
+
             else -> {
                 // Try to extract type from the text
                 val text = expression?.text ?: return null
@@ -314,6 +314,7 @@ object TypePresentationUtil {
                 // Named constructor: MyClass.namedConstructor() -> MyClass
                 constructorName.substringBefore(".")
             }
+
             else -> null
         }
     }
@@ -387,6 +388,7 @@ object TypePresentationUtil {
                     inferIterableGenerateTypeFromText(text)
                 }
             }
+
             text.contains("Iterable.empty") -> null  // No useful type info
             text.contains("Iterable<") -> extractGenericType(text)
             else -> null
@@ -407,7 +409,7 @@ object TypePresentationUtil {
                 return inferTypeFromGeneratorFunction(generatorFunction)
             }
         }
-        
+
         // Fallback to text-based analysis if PSI analysis fails
         return inferIterableGenerateTypeFromText(text)
     }
@@ -438,6 +440,7 @@ object TypePresentationUtil {
                     null
                 }
             }
+
             else -> null
         }
     }
@@ -456,11 +459,11 @@ object TypePresentationUtil {
                 return inferTypeFromGeneratorFunction(generatorFunction)
             }
         }
-        
+
         // Fallback to text-based analysis if PSI analysis fails
         return inferListGenerateTypeFromText(text)
     }
-    
+
     /**
      * Fallback text-based analysis for List.generate
      */
@@ -513,7 +516,7 @@ object TypePresentationUtil {
                 val content = text.substring(1, text.length - 1)
                 parseRecordComponents(content, psiContext)
             }
-            
+
             // Method calls that return records - use PSI analysis
             text.contains(".") && text.contains("(") -> {
                 if (psiContext != null) {
@@ -534,11 +537,11 @@ object TypePresentationUtil {
         // Find the method call in PSI
         val callExpressions = mutableListOf<DartCallExpression>()
         collectCallExpressions(psiContext, callExpressions)
-        
+
         val methodCall = callExpressions.find { call ->
             call.text.trim() == methodCallText.trim()
         }
-        
+
         if (methodCall != null) {
             // Try to resolve the method and get its return type
             val returnType = resolveMethodReturnType(methodCall)
@@ -546,7 +549,7 @@ object TypePresentationUtil {
                 return parseRecordTypeComponents(returnType)
             }
         }
-        
+
         return emptyList()
     }
 
@@ -555,21 +558,23 @@ object TypePresentationUtil {
      */
     private fun resolveMethodReturnType(methodCall: DartCallExpression): String? {
         val expression = methodCall.expression
-        
+
         when (expression) {
             is DartReferenceExpression -> {
                 // Direct method call like toString()
                 val methodName = expression.text
                 return getKnownMethodReturnType(methodName)
             }
+
             is DartCallExpression -> {
                 // Method chain like obj.method().otherMethod()
                 return resolveMethodReturnType(expression)
             }
+
             else -> {
                 // Property access method calls like obj.prop.method()
                 val methodText = methodCall.text
-                
+
                 // Analyze the method being called
                 if (methodText.contains(".")) {
                     val parts = methodText.split(".")
@@ -579,17 +584,17 @@ object TypePresentationUtil {
                         return getKnownMethodReturnType(methodName)
                     }
                 }
-                
+
                 // Try to resolve factory constructors
                 if (isFactoryConstructor(methodCall)) {
                     return resolveFactoryConstructorType(methodCall)
                 }
-                
+
                 return null
             }
         }
     }
-    
+
     /**
      * Get return type for known method names
      */
@@ -606,23 +611,24 @@ object TypePresentationUtil {
             else -> null
         }
     }
-    
+
     /**
      * Check if a call expression is a factory constructor using PSI analysis
      */
     private fun isFactoryConstructor(callExpr: DartCallExpression): Boolean {
         // Get the reference being called
         val expression = callExpr.expression
-        
+
         when (expression) {
             is DartReferenceExpression -> {
                 // Simple constructor call like MyClass() or named like MyClass.create()
                 val referenceName = expression.text
-                
+
                 // Find the constructor declaration
                 val constructorDeclaration = findConstructorDeclaration(callExpr, referenceName)
                 return constructorDeclaration != null && isFactoryDeclaration(constructorDeclaration)
             }
+
             else -> {
                 // For complex expressions, analyze the text to extract the constructor pattern
                 val text = callExpr.text
@@ -630,18 +636,19 @@ object TypePresentationUtil {
             }
         }
     }
-    
+
     /**
      * Resolve factory constructor type using PSI analysis
      */
     private fun resolveFactoryConstructorType(callExpr: DartCallExpression): String? {
         val expression = callExpr.expression
-        
+
         when (expression) {
             is DartReferenceExpression -> {
                 val referenceName = expression.text
                 return extractClassNameFromConstructor(referenceName)
             }
+
             else -> {
                 // Fallback to text analysis if PSI structure is complex
                 val text = expression?.text ?: return null
@@ -649,7 +656,7 @@ object TypePresentationUtil {
             }
         }
     }
-    
+
     /**
      * Extract class name from constructor reference
      */
@@ -659,29 +666,31 @@ object TypePresentationUtil {
                 // Named constructor: MyClass.namedConstructor -> MyClass
                 constructorRef.substringBefore(".")
             }
+
             constructorRef.matches(Regex("""^\w+$""")) -> {
                 // Simple constructor: MyClass -> MyClass
                 constructorRef
             }
+
             else -> null
         }
     }
-    
+
     /**
      * Find constructor declaration PSI element using manual traversal
      */
     private fun findConstructorDeclaration(context: PsiElement, constructorRef: String): PsiElement? {
         val className = extractClassNameFromConstructor(constructorRef)
         if (className == null) return null
-        
+
         // Find the class declaration first
         val classDeclaration = findClassDeclaration(context, className)
         if (classDeclaration == null) return null
-        
+
         // Look for the constructor within the class
         return findConstructorInClass(classDeclaration, constructorRef)
     }
-    
+
     /**
      * Find specific constructor in class definition using PSI analysis
      */
@@ -693,16 +702,16 @@ object TypePresentationUtil {
             // Default constructor - look for the class name or no name
             constructorRef
         }
-        
+
         // Manual traversal to find constructor declarations
         val constructors = mutableListOf<PsiElement>()
         collectConstructorDeclarations(classDeclaration, constructors)
-        
+
         return constructors.find { constructor ->
             isMatchingConstructor(constructor, constructorName)
         }
     }
-    
+
     /**
      * Collect constructor declarations manually using PSI traversal
      */
@@ -711,19 +720,19 @@ object TypePresentationUtil {
         if (isConstructorDeclaration(element)) {
             result.add(element)
         }
-        
+
         // Recursively traverse children
         for (child in element.children) {
             collectConstructorDeclarations(child, result)
         }
     }
-    
+
     /**
      * Check if PSI element represents a constructor declaration
      */
     private fun isConstructorDeclaration(element: PsiElement): Boolean {
         val text = element.text ?: return false
-        
+
         // Look for constructor patterns:
         // - factory MyClass()
         // - external factory MyClass()
@@ -731,45 +740,45 @@ object TypePresentationUtil {
         // - factory MyClass.namedConstructor()
         // - external factory MyClass.namedConstructor()
         return text.trimStart().let { trimmed ->
-            trimmed.startsWith("factory ") ||
-            trimmed.startsWith("external factory ") ||
-            // Regular constructors (class name followed by parentheses)
-            trimmed.matches(Regex("""^\w+\s*\([^)]*\)""")) ||
-            // Named constructors
-            trimmed.matches(Regex("""^\w+\.\w+\s*\([^)]*\)"""))
+            trimmed.startsWith("factory ") || trimmed.startsWith("external factory ") ||
+                    // Regular constructors (class name followed by parentheses)
+                    trimmed.matches(Regex("""^\w+\s*\([^)]*\)""")) ||
+                    // Named constructors
+                    trimmed.matches(Regex("""^\w+\.\w+\s*\([^)]*\)"""))
         }
     }
-    
+
     /**
      * Check if a constructor declaration is a factory constructor
      */
     private fun isFactoryDeclaration(constructorElement: PsiElement): Boolean {
         val text = constructorElement.text ?: return false
         val trimmed = text.trimStart()
-        
+
         return trimmed.startsWith("factory ") || trimmed.startsWith("external factory ")
     }
-    
+
     /**
      * Check if constructor matches the given name
      */
     private fun isMatchingConstructor(constructor: PsiElement, constructorName: String): Boolean {
         val text = constructor.text ?: return false
-        
+
         return when {
             constructorName.contains(".") -> {
                 // Named constructor
                 text.contains(constructorName)
             }
+
             else -> {
                 // Default constructor - match class name or just check if it's the main constructor
-                text.contains("$constructorName(") || 
-                // For factory constructors that might not include class name in the method
-                (text.contains("factory") && !text.contains("."))
+                text.contains("$constructorName(") ||
+                        // For factory constructors that might not include class name in the method
+                        (text.contains("factory") && !text.contains("."))
             }
         }
     }
-    
+
     /**
      * Analyze constructor pattern from text and check if it's a factory
      */
@@ -777,13 +786,13 @@ object TypePresentationUtil {
         // Extract the constructor reference pattern
         val constructorPattern = Regex("""^(\w+(?:\.\w+)?)\(.*\)$""")
         val match = constructorPattern.find(text.trim())
-        
+
         if (match != null) {
             val constructorRef = match.groupValues[1]
             val constructorDeclaration = findConstructorDeclaration(context, constructorRef)
             return constructorDeclaration != null && isFactoryDeclaration(constructorDeclaration)
         }
-        
+
         return false
     }
 
@@ -794,7 +803,7 @@ object TypePresentationUtil {
         if (!recordType.startsWith("(") || !recordType.endsWith(")")) {
             return emptyList()
         }
-        
+
         val content = recordType.substring(1, recordType.length - 1)
         return content.split(",").map { it.trim().ifEmpty { null } }
     }
@@ -813,10 +822,12 @@ object TypePresentationUtil {
                     depth++
                     current.append(char)
                 }
+
                 ')' -> {
                     depth--
                     current.append(char)
                 }
+
                 ',' -> {
                     if (depth == 0) {
                         val component = current.toString().trim()
@@ -826,6 +837,7 @@ object TypePresentationUtil {
                         current.append(char)
                     }
                 }
+
                 else -> current.append(char)
             }
         }
@@ -859,13 +871,13 @@ object TypePresentationUtil {
      */
     private fun resolveVariableType(variableName: String, psiContext: PsiElement? = null): String? {
         if (psiContext == null) return null
-        
+
         // Find variable declarations in the current context
         val variableDeclaration = findVariableDeclaration(psiContext, variableName)
         if (variableDeclaration != null) {
             return inferTypeFromVariableDeclaration(variableDeclaration)
         }
-        
+
         return null
     }
 
@@ -883,7 +895,7 @@ object TypePresentationUtil {
         }
         return null
     }
-    
+
     /**
      * Check if element contains a variable declaration
      */
@@ -892,45 +904,45 @@ object TypePresentationUtil {
         val pattern = Regex("""(?:var|final|late)\s+${Regex.escape(variableName)}\s*=""")
         return pattern.containsMatchIn(text)
     }
-    
+
     /**
      * Find Iterable.generate call in PSI tree using manual traversal
      */
     private fun findIterableGenerateCall(context: PsiElement, targetText: String): DartCallExpression? {
         val callExpressions = mutableListOf<DartCallExpression>()
         collectCallExpressions(context, callExpressions)
-        
+
         return callExpressions.find { call ->
             val text = call.text.trim()
             text.contains("Iterable.generate") && text == targetText.trim()
         }
     }
-    
+
     /**
      * Find List.generate call in PSI tree using manual traversal
      */
     private fun findListGenerateCall(context: PsiElement, targetText: String): DartCallExpression? {
         val callExpressions = mutableListOf<DartCallExpression>()
         collectCallExpressions(context, callExpressions)
-        
+
         return callExpressions.find { call ->
             val text = call.text.trim()
             text.contains("List.generate") && text == targetText.trim()
         }
     }
-    
+
     /**
      * Get arguments from a call expression using manual analysis
      */
     private fun getCallArguments(call: DartCallExpression): List<PsiElement> {
         val arguments = mutableListOf<PsiElement>()
-        
+
         // Use manual traversal to find arguments
         collectCallArgumentElements(call, arguments)
-        
+
         return arguments
     }
-    
+
     /**
      * Collect argument elements manually
      */
@@ -944,7 +956,7 @@ object TypePresentationUtil {
             collectCallArgumentElements(child, result)
         }
     }
-    
+
     /**
      * Check if PSI element represents a function argument
      */
@@ -952,56 +964,55 @@ object TypePresentationUtil {
         // This is a simplified check - in a real implementation we'd need to
         // understand the specific Dart PSI structure for arguments
         val text = element.text?.trim() ?: return false
-        
+
         // Look for lambda function patterns
-        return text.contains("=>") || 
-               (text.startsWith("(") && text.contains(")") && text.contains("=>"))
+        return text.contains("=>") || (text.startsWith("(") && text.contains(")") && text.contains("=>"))
     }
-    
+
     /**
      * Infer type from generator function (lambda) PSI element
      */
     private fun inferTypeFromGeneratorFunction(generatorElement: PsiElement): String? {
         val text = generatorElement.text?.trim() ?: return null
-        
+
         // Extract the expression after =>
         val arrowIndex = text.indexOf("=>")
         if (arrowIndex >= 0 && arrowIndex < text.length - 2) {
             val returnExpr = text.substring(arrowIndex + 2).trim()
-            
+
             // Remove trailing parentheses if present
             val cleanExpr = if (returnExpr.endsWith(")")) {
                 returnExpr.dropLast(1).trim()
             } else returnExpr
-            
+
             // Analyze the return expression
             return inferTypeFromGeneratorExpression(cleanExpr)
         }
-        
+
         return null
     }
-    
+
     /**
      * Infer type from generator expression (the part after =>)
      */
     private fun inferTypeFromGeneratorExpression(expression: String): String? {
         val expr = expression.trim()
-        
+
         return when {
             // Variable references (like "index", "i")
             expr.matches(Regex("""^\w+$""")) -> "int" // Generator variables are typically int
-            
+
             // Arithmetic expressions
             expr.contains("+") || expr.contains("-") || expr.contains("*") || expr.contains("/") -> {
                 if (expr.contains(".")) "double" else "int"
             }
-            
+
             // Method calls on the parameter
             expr.matches(Regex("""^\w+\.\w+\(.*\)$""")) -> {
                 val methodName = expr.substringAfter(".").substringBefore("(")
                 getKnownMethodReturnType(methodName)
             }
-            
+
             // Literals
             else -> getTypeFromLiteral(expr)
         }
@@ -1012,7 +1023,7 @@ object TypePresentationUtil {
      */
     private fun inferTypeFromVariableDeclaration(declaration: PsiElement): String? {
         val text = declaration.text ?: return null
-        
+
         // Extract the initialization expression using text analysis
         val pattern = Regex("""(?:var|final|late)\s+\w+\s*=\s*([^;]+)""")
         val match = pattern.find(text)
@@ -1068,7 +1079,7 @@ object TypePresentationUtil {
     private fun inferTypeFromReferenceExpression(callExpr: DartCallExpression): String? {
         val expression = callExpr.expression
         val methodText = callExpr.text
-        
+
         return when {
             // Method calls with known return types
             methodText.endsWith(".toString()") -> "String"
@@ -1078,20 +1089,21 @@ object TypePresentationUtil {
             methodText.contains(".split(") -> "List<String>"
             methodText.contains(".runes") -> "Runes"
             methodText.contains(".codeUnits") -> "List<int>"
-            
+
             // Generator functions
             methodText.contains("Iterable.generate") -> {
                 val elementType = inferIterableGenerateTypeFromPsi(methodText, callExpr)
                 if (elementType != null) "Iterable<$elementType>" else "Iterable"
             }
+
             methodText.contains("List.generate") -> {
                 val elementType = inferListGenerateTypeFromPsi(methodText, callExpr)
                 if (elementType != null) "List<$elementType>" else "List"
             }
-            
+
             // Factory constructors
             isFactoryConstructor(callExpr) -> resolveFactoryConstructorType(callExpr)
-            
+
             // Constructor calls - infer from the constructor name
             expression is DartReferenceExpression -> {
                 val constructorName = expression.text
@@ -1104,7 +1116,7 @@ object TypePresentationUtil {
                     null
                 }
             }
-            
+
             else -> null
         }
     }
@@ -1114,7 +1126,7 @@ object TypePresentationUtil {
      */
     private fun inferTypeFromReference(refExpr: DartReferenceExpression): String? {
         val referenceName = refExpr.text
-        
+
         // Try to resolve the reference to its declaration
         return resolveVariableType(referenceName, refExpr)
     }
@@ -1122,7 +1134,9 @@ object TypePresentationUtil {
     /**
      * Enhanced version that can resolve variable types in context using PSI
      */
-    fun inferIterableElementTypeWithContext(iterableText: String, contextText: String? = null, psiContext: PsiElement? = null): String? {
+    fun inferIterableElementTypeWithContext(
+        iterableText: String, contextText: String? = null, psiContext: PsiElement? = null
+    ): String? {
         val text = iterableText.trim()
 
         // First try the enhanced inference with PSI context
@@ -1141,7 +1155,7 @@ object TypePresentationUtil {
                     }
                 }
             }
-            
+
             // Fallback to text-based resolution
             if (contextText != null) {
                 return resolveVariableInContext(text, contextText)
@@ -1228,26 +1242,26 @@ object TypePresentationUtil {
         if (classDeclaration != null) {
             return findFieldTypeInClass(classDeclaration, fieldName)
         }
-        
+
         // Fallback to text-based analysis if PSI traversal fails
         val fileText = context.containingFile?.text ?: return null
-        
+
         // Find class definition pattern
         val classPattern = Regex("""class\s+${Regex.escape(className)}[^{]*\{([^}]*)\}""", RegexOption.DOT_MATCHES_ALL)
         val classMatch = classPattern.find(fileText)
-        
+
         if (classMatch != null) {
             val classBody = classMatch.groupValues[1]
-            
+
             // Look for field declaration
             val fieldPattern = Regex("""(?:final|var|late)\s+(\w+\??)\s+${Regex.escape(fieldName)}""")
             val fieldMatch = fieldPattern.find(classBody)
-            
+
             if (fieldMatch != null) {
                 return fieldMatch.groupValues[1]
             }
         }
-        
+
         return null
     }
 
@@ -1258,13 +1272,13 @@ object TypePresentationUtil {
         // Try to find class definition using PSI traversal
         val classDefinitions = mutableListOf<PsiElement>()
         collectClassDefinitions(context.containingFile ?: context, classDefinitions)
-        
+
         return classDefinitions.find { classElement ->
             val text = classElement.text
             text != null && text.contains("class $className")
         }
     }
-    
+
     /**
      * Collect class definitions manually using PSI traversal
      */
@@ -1273,41 +1287,39 @@ object TypePresentationUtil {
         if (isClassDeclaration(element)) {
             result.add(element)
         }
-        
+
         // Recursively traverse children
         for (child in element.children) {
             collectClassDefinitions(child, result)
         }
     }
-    
+
     /**
      * Check if PSI element represents a class declaration
      */
     private fun isClassDeclaration(element: PsiElement): Boolean {
         val text = element.text ?: return false
-        
+
         // Look for class declaration patterns
-        return text.trimStart().startsWith("class ") && 
-               text.contains("{") && 
-               text.contains("}")
+        return text.trimStart().startsWith("class ") && text.contains("{") && text.contains("}")
     }
-    
+
     /**
      * Find field type in class definition using enhanced analysis
      */
     private fun findFieldTypeInClass(classDefinition: PsiElement, fieldName: String): String? {
         val text = classDefinition.text ?: return null
-        
+
         // Look for field declarations with proper type annotations
         val patterns = listOf(
             // Explicit type: final String name;
             Regex("""(?:final|var|late)\s+(\w+\??)\s+${Regex.escape(fieldName)}\s*[;=]"""),
-            // Constructor parameter: this.name, 
+            // Constructor parameter: this.name,
             Regex("""this\.${Regex.escape(fieldName)}\s*[,)]"""),
-            // Field with initializer: final name = 
+            // Field with initializer: final name =
             Regex("""(?:final|var|late)\s+${Regex.escape(fieldName)}\s*=""")
         )
-        
+
         for (pattern in patterns) {
             val match = pattern.find(text)
             if (match != null) {
@@ -1320,24 +1332,24 @@ object TypePresentationUtil {
                 }
             }
         }
-        
+
         return null
     }
-    
+
     /**
      * Infer field type from class context (constructor parameters, etc.)
      */
     private fun inferFieldTypeFromContext(classDefinition: PsiElement, fieldName: String): String? {
         val text = classDefinition.text ?: return null
-        
+
         // Look for constructor parameter types
         val constructorPattern = Regex("""(?:\w+\(|:\s*)\s*[^)]*\b(\w+\??)\s+this\.${Regex.escape(fieldName)}""")
         val constructorMatch = constructorPattern.find(text)
-        
+
         if (constructorMatch != null) {
             return constructorMatch.groupValues[1]
         }
-        
+
         return null
     }
 }

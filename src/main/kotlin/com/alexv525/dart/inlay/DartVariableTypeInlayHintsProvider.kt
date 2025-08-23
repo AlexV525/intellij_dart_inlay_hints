@@ -33,10 +33,7 @@ class DartVariableTypeInlayHintsProvider : InlayHintsProvider<NoSettings> {
     """.trimIndent()
 
     override fun getCollectorFor(
-        file: PsiFile,
-        editor: Editor,
-        settings: NoSettings,
-        sink: InlayHintsSink
+        file: PsiFile, editor: Editor, settings: NoSettings, sink: InlayHintsSink
     ): InlayHintsCollector? {
         // Only apply to .dart files
         if (file.virtualFile?.extension != "dart") {
@@ -133,8 +130,7 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
             WithAttributesPresentation.AttributesFlags().withIsDefault(true),
         )
         presentation = DynamicInsetPresentation(
-            presentation,
-            offsetFromTopProvider
+            presentation, offsetFromTopProvider
         )
         return presentation
     }

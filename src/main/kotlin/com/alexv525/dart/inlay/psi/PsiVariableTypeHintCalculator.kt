@@ -33,7 +33,7 @@ object PsiVariableTypeHintCalculator {
      */
     fun calculateAllHintsForElement(element: PsiElement): List<Pair<Int, String>> {
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-        
+
         // Skip if variable type hints are disabled
         if (!settings.enableVariableTypeHints) return emptyList()
 
@@ -46,31 +46,31 @@ object PsiVariableTypeHintCalculator {
         if (element is PsiComment || isInsideComment(element)) {
             return emptyList()
         }
-        
+
         val text = element.text?.trim() ?: return emptyList()
-        
+
         // Skip elements that are too small to contain meaningful variable declarations
         if (text.length < 3) return emptyList()
-        
+
         // More permissive filtering - look for any variable-related keywords
         val hasVarKeywords = text.contains("var ") || text.contains("final ") || text.contains("late ")
         val hasForLoop = text.contains("for ") || text.contains("for(")
         val hasParenVar = text.contains("(var ") || text.contains("(final ") // for-each inside parens
-        
+
         if (!hasVarKeywords && !hasForLoop && !hasParenVar) {
             return emptyList()
         }
 
         val hints = mutableListOf<Pair<Int, String>>()
-        
+
         // Focus on patterns that actually work reliably
-        
+
         // 1. Simple variable declarations: var/final/late name = expression
         calculateSimpleVariableHint(element, text)?.let { hints.add(it) }
-        
+
         // 2. Pattern/destructuring assignments: var (a, b) = (x, y)
         hints.addAll(calculateDestructuringHints(element, text))
-        
+
         // 3. For-each loops: for (var x in iterable) - improved version
         hints.addAll(calculateForEachLoopHintsImproved(element, text))
 
@@ -103,14 +103,13 @@ object PsiVariableTypeHintCalculator {
     }
 
 
-
     /**
      * Calculate hints for pattern/destructuring assignments: var (a, b) = (1, 's')
      */
     private fun calculateDestructuringHints(element: PsiElement, text: String): List<Pair<Int, String>> {
         val hints = mutableListOf<Pair<Int, String>>()
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-        
+
         // Pattern: (var|final) (name1, name2, ...) = expression
         val destructurePattern = Regex("""(var|final)\s+\(([^)]+)\)\s*=\s*([^;]+);?""")
         val matches = destructurePattern.findAll(text)
@@ -121,18 +120,18 @@ object PsiVariableTypeHintCalculator {
 
             // Parse variable names
             val varNames = variables.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-            
+
             // Infer types from RHS expression with PSI context
             val inferredTypes = TypePresentationUtil.inferDestructuringTypes(rhsExpression, element)
-            
+
             // Create hints for each variable
             for (i in varNames.indices) {
                 val varName = varNames[i]
                 if (settings.shouldSuppressVariableName(varName)) continue
-                
+
                 val inferredType = inferredTypes.getOrNull(i)
                 val finalType = inferredType ?: if (settings.showUnknownType) "unknown" else continue
-                
+
                 val formattedType = TypePresentationUtil.formatType(finalType) ?: continue
                 if (TypePresentationUtil.isTrivialType(formattedType)) continue
                 if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
@@ -152,7 +151,7 @@ object PsiVariableTypeHintCalculator {
      */
     private fun calculateSimpleVariableHint(element: PsiElement, text: String): Pair<Int, String>? {
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-        
+
         // Look for simple variable declarations
         // Pattern: (var|final|late) identifier = expression;
         val varPattern = Regex("""(var|final|late)\s+(\w+)\s*=\s*([^;]+);?""")
@@ -169,8 +168,8 @@ object PsiVariableTypeHintCalculator {
             ?: if (settings.showUnknownType) "unknown" else return null
 
         val formattedType = TypePresentationUtil.formatType(inferredType) ?: return null
-        
-        // Check suppression and complexity requirements  
+
+        // Check suppression and complexity requirements
         if (TypePresentationUtil.isTrivialType(formattedType)) return null
         if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) return null
 
@@ -179,7 +178,7 @@ object PsiVariableTypeHintCalculator {
         val offset = element.textRange.startOffset + varNameIndex
         return offset to formattedType
     }
-    
+
     /**
      * Enhanced type inference that uses PSI context when available
      */
@@ -187,36 +186,36 @@ object PsiVariableTypeHintCalculator {
         // First try the enhanced inference with PSI context
         val basicType = TypePresentationUtil.getTypeFromLiteral(expression, element)
         if (basicType != null) return basicType
-        
+
         // For property access patterns, try to use context
         if (expression.matches(Regex("^\\w+\\.\\w+$"))) {
             return inferPropertyTypeWithContext(expression, element)
         }
-        
+
         return null
     }
-    
+
     /**
      * Try to infer property type using broader context
      */
     private fun inferPropertyTypeWithContext(propertyExpr: String, element: PsiElement): String? {
         val objectName = propertyExpr.substringBefore(".")
         val propertyName = propertyExpr.substringAfter(".")
-        
+
         // Get broader context to look for object declaration
         val contextElement = getContextElement(element, 5) // Go up more levels
         val contextText = contextElement?.text ?: return null
-        
+
         // Look for the declaration of the object
         val objDeclPattern = Regex("""(?:var|final|late|const)\s+${Regex.escape(objectName)}\s*=\s*(\w+)\s*\(""")
         val objMatch = objDeclPattern.find(contextText)
-        
+
         if (objMatch != null) {
             val constructorName = objMatch.groupValues[1]
             // For the test case: final foo = Foo(...) and final foobar1 = foo.bar1
             // We know from context that foo is of type Foo
             // But without full PSI analysis, we can't determine field types
-            
+
             // For now, make an educated guess for the test case
             if (constructorName == "Foo" && propertyName.startsWith("bar")) {
                 // Based on the example, Foo.bar1 and bar2 are String, bar3 is String?
@@ -227,7 +226,7 @@ object PsiVariableTypeHintCalculator {
                 }
             }
         }
-        
+
         return null
     }
 
@@ -237,7 +236,7 @@ object PsiVariableTypeHintCalculator {
     private fun inferTypeFromExpressionText(expression: String): String? {
         return TypePresentationUtil.getTypeFromLiteral(expression)
     }
-    
+
     /**
      * Simplified for-each loop hints calculation.
      * Uses a single, reliable approach to avoid context confusion and variable caching issues.
@@ -245,34 +244,34 @@ object PsiVariableTypeHintCalculator {
     private fun calculateForEachLoopHintsImproved(element: PsiElement, text: String): List<Pair<Int, String>> {
         val hints = mutableListOf<Pair<Int, String>>()
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
-        
+
         // Single pattern approach: Look for complete for-each loops in the current element only
         // Use non-greedy matching to properly handle nested parentheses like 'hello'.split('')
         val forEachPattern = Regex("""for\s*\(\s*(var|final)\s+(\w+)\s+in\s+(.+?)\s*\)\s*\{""")
         val matches = forEachPattern.findAll(text)
-        
+
         for (match in matches) {
             val varName = match.groupValues[2]
             val iterableExpr = match.groupValues[3].trim()
-            
+
             if (settings.shouldSuppressVariableName(varName)) continue
-            
-            // Infer element type from the iterable expression 
+
+            // Infer element type from the iterable expression
             // Use PSI context and current element's context to avoid cross-contamination
             val elementType = TypePresentationUtil.inferIterableElementTypeWithContext(iterableExpr, text, element)
                 ?: if (settings.showUnknownType) "unknown" else continue
-                
+
             val formattedType = TypePresentationUtil.formatType(elementType) ?: continue
-            
+
             if (TypePresentationUtil.isTrivialType(formattedType)) continue
             if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
-            
+
             // Find position before variable name for prefix placement
             val varNameIndex = match.range.start + match.value.indexOf(varName)
             val offset = element.textRange.startOffset + varNameIndex
             hints.add(offset to formattedType)
         }
-        
+
         return hints
     }
 

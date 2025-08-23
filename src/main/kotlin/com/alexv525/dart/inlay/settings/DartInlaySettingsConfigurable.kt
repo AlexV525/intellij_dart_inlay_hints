@@ -44,46 +44,37 @@ class DartInlaySettingsConfigurable : SearchableConfigurable {
         // Create components
         enableVariableTypeHints = JBCheckBox("Show variable type hints", settings.enableVariableTypeHints)
         suppressDynamic = JBCheckBox("Suppress 'dynamic' types", settings.suppressDynamic)
-        suppressTrivialBuiltins = JBCheckBox("Suppress trivial built-in types (int, String, bool, etc.)", settings.suppressTrivialBuiltins)
+        suppressTrivialBuiltins =
+            JBCheckBox("Suppress trivial built-in types (int, String, bool, etc.)", settings.suppressTrivialBuiltins)
         suppressObviousLiterals = JBCheckBox("Suppress obvious literal types", settings.suppressObviousLiterals)
         showUnknownType = JBCheckBox("Show 'unknown' for unresolved types", settings.showUnknownType)
-        
-        minComplexity = ComboBox(arrayOf("All types", "Include generics", "Nested generics only", "Function types only"))
+
+        minComplexity =
+            ComboBox(arrayOf("All types", "Include generics", "Nested generics only", "Function types only"))
         minComplexity.selectedIndex = settings.minComplexity
-        
+
         blacklistField = JBTextField(settings.blacklist.joinToString(", "))
         maxFileSize = JBIntSpinner(settings.maxFileSize, 1000, 1000000)
 
         // Create main panel with sections
-        val variableSection = FormBuilder.createFormBuilder()
-            .addComponent(enableVariableTypeHints)
-            .addVerticalGap(5)
-            .panel
+        val variableSection =
+            FormBuilder.createFormBuilder().addComponent(enableVariableTypeHints).addVerticalGap(5).panel
 
-        val deNoiseSection = FormBuilder.createFormBuilder()
-            .addComponent(suppressDynamic)
-            .addComponent(suppressTrivialBuiltins)
-            .addComponent(suppressObviousLiterals)
-            .addLabeledComponent("Minimum type complexity:", minComplexity)
-            .addLabeledComponent("Blacklisted variable names:", blacklistField)
-            .panel
+        val deNoiseSection =
+            FormBuilder.createFormBuilder().addComponent(suppressDynamic).addComponent(suppressTrivialBuiltins)
+                .addComponent(suppressObviousLiterals).addLabeledComponent("Minimum type complexity:", minComplexity)
+                .addLabeledComponent("Blacklisted variable names:", blacklistField).panel
 
-        val advancedSection = FormBuilder.createFormBuilder()
-            .addComponent(showUnknownType)
-            .addLabeledComponent("Max file size to process (chars):", maxFileSize)
-            .panel
+        val advancedSection = FormBuilder.createFormBuilder().addComponent(showUnknownType)
+            .addLabeledComponent("Max file size to process (chars):", maxFileSize).panel
 
         // Add borders to sections
         variableSection.border = TitledBorder("Variable Type Hints")
         deNoiseSection.border = TitledBorder("De-noising Controls")
         advancedSection.border = TitledBorder("Advanced Options")
 
-        mainPanel = FormBuilder.createFormBuilder()
-            .addComponent(variableSection)
-            .addComponent(deNoiseSection)
-            .addComponent(advancedSection)
-            .addComponentFillVertically(JPanel(), 0)
-            .panel
+        mainPanel = FormBuilder.createFormBuilder().addComponent(variableSection).addComponent(deNoiseSection)
+            .addComponent(advancedSection).addComponentFillVertically(JPanel(), 0).panel
 
         mainPanel.border = JBUI.Borders.empty(10)
 
@@ -109,14 +100,9 @@ class DartInlaySettingsConfigurable : SearchableConfigurable {
 
     override fun isModified(): Boolean {
         val settings = DartInlaySettings.getInstance()
-        return enableVariableTypeHints.isSelected != settings.enableVariableTypeHints ||
-                suppressDynamic.isSelected != settings.suppressDynamic ||
-                suppressTrivialBuiltins.isSelected != settings.suppressTrivialBuiltins ||
-                suppressObviousLiterals.isSelected != settings.suppressObviousLiterals ||
-                showUnknownType.isSelected != settings.showUnknownType ||
-                minComplexity.selectedIndex != settings.minComplexity ||
-                blacklistField.text != settings.blacklist.joinToString(", ") ||
-                maxFileSize.number != settings.maxFileSize
+        return enableVariableTypeHints.isSelected != settings.enableVariableTypeHints || suppressDynamic.isSelected != settings.suppressDynamic || suppressTrivialBuiltins.isSelected != settings.suppressTrivialBuiltins || suppressObviousLiterals.isSelected != settings.suppressObviousLiterals || showUnknownType.isSelected != settings.showUnknownType || minComplexity.selectedIndex != settings.minComplexity || blacklistField.text != settings.blacklist.joinToString(
+            ", "
+        ) || maxFileSize.number != settings.maxFileSize
     }
 
     override fun apply() {
@@ -129,25 +115,25 @@ class DartInlaySettingsConfigurable : SearchableConfigurable {
         settings.minComplexity = minComplexity.selectedIndex
         settings.blacklist = blacklistField.text.split(",").map { it.trim() }.filter { it.isNotEmpty() }.toSet()
         settings.maxFileSize = maxFileSize.number
-        
+
         // Trigger refresh of inlay hints for all open Dart files
         refreshInlayHintsForAllDartFiles()
     }
-    
+
     /**
      * Refresh inlay hints for all open Dart files immediately when settings change
      */
     private fun refreshInlayHintsForAllDartFiles() {
         ApplicationManager.getApplication().invokeLater {
             val projects = ProjectManager.getInstance().openProjects
-            
+
             for (project in projects) {
                 if (project.isDisposed) continue
-                
+
                 val fileEditorManager = FileEditorManager.getInstance(project)
                 val psiManager = PsiManager.getInstance(project)
                 val analyzer = DaemonCodeAnalyzer.getInstance(project)
-                
+
                 fileEditorManager.openFiles.forEach { virtualFile ->
                     if (virtualFile.extension == "dart") {
                         val psiFile = psiManager.findFile(virtualFile)

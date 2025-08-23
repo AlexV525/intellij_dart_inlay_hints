@@ -48,15 +48,16 @@ class DartAnalysisListener : ProjectActivity {
         }
     }
 
+    // TODO: Implement to listen settings change
     private fun setupSettingsListener(project: Project) {
         // Listen for settings changes and refresh all Dart files immediately
         val settings = DartInlaySettings.getInstance()
-        
+
         // Note: For a complete implementation, we would need to add a proper settings change listener.
         // For now, this comment serves as a placeholder for the feature.
-        // The IntelliJ platform typically handles inlay hint refreshing automatically when 
+        // The IntelliJ platform typically handles inlay hint refreshing automatically when
         // the settings UI is used, but custom settings might need manual refresh triggers.
-        
+
         // A full implementation would involve:
         // 1. Adding a SettingsChangeListener to DartInlaySettings
         // 2. Triggering updateHintsForOpenDartFiles(project) when settings change

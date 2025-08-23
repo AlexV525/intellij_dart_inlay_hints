@@ -73,8 +73,21 @@ object PsiParameterNameHintCalculator {
 
         // Must not be a reserved word or common type
         val reserved = setOf(
-            "int", "String", "bool", "double", "num", "dynamic", "Object", "void",
-            "var", "final", "const", "required", "late", "this", "super"
+            "int",
+            "String",
+            "bool",
+            "double",
+            "num",
+            "dynamic",
+            "Object",
+            "void",
+            "var",
+            "final",
+            "const",
+            "required",
+            "late",
+            "this",
+            "super"
         )
         return name !in reserved
     }
@@ -110,9 +123,9 @@ object PsiParameterNameHintCalculator {
         // Filter out common type keywords and modifiers
         val filteredParts = parts.filter { part ->
             val cleanPart = part.trim()
-            cleanPart.isNotEmpty() &&
-                    !cleanPart.matches(Regex("(int|String|bool|double|num|dynamic|Object|void|var|final|const|required|late)")) &&
-                    !cleanPart.startsWith("@") &&  // Skip annotations
+            cleanPart.isNotEmpty() && !cleanPart.matches(Regex("(int|String|bool|double|num|dynamic|Object|void|var|final|const|required|late)")) && !cleanPart.startsWith(
+                "@"
+            ) &&  // Skip annotations
                     !cleanPart.contains("<") &&    // Skip generic types
                     !cleanPart.contains("(")       // Skip function types
         }

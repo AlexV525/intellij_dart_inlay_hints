@@ -14,8 +14,7 @@ import com.intellij.util.xmlb.XmlSerializerUtil
  */
 @Service(Service.Level.APP)
 @State(
-    name = "DartInlaySettings",
-    storages = [Storage("DartInlayHints.xml")]
+    name = "DartInlaySettings", storages = [Storage("DartInlayHints.xml")]
 )
 class DartInlaySettings : PersistentStateComponent<DartInlaySettings> {
 
@@ -55,17 +54,17 @@ class DartInlaySettings : PersistentStateComponent<DartInlaySettings> {
         if (typeName == null) return true
 
         val formatted = typeName.lowercase().trim()
-        
+
         // Always suppress dynamic if enabled
         if (suppressDynamic && formatted == "dynamic") return true
-        
+
         // Suppress trivial built-ins if enabled
         if (suppressTrivialBuiltins) {
             when (formatted) {
                 "object", "void", "int", "double", "string", "bool" -> return true
             }
         }
-        
+
         return false
     }
 
