@@ -9,5 +9,8 @@ out/
 build/
 gradle/wrapper/gradle-wrapper.jar
 
+# Kotlin
+.kotlin/
+
 # OS
 .DS_Store
