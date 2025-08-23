@@ -5,7 +5,6 @@
 package com.alexv525.dart.inlay.psi
 
 import com.intellij.psi.PsiElement
-import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.lang.dart.psi.*
 
 /**
@@ -257,7 +256,7 @@ object TypePresentationUtil {
      */
     private fun inferTypeFromConstructorPsi(call: DartCallExpression): String? {
         return when (val expression = call.expression) {
-            is DartReferenceExpression -> inferTypeFromCallExpression(expression)
+            is DartReferenceExpression -> inferTypeFromReferenceExpression(expression)
 
             is DartCallExpression -> {
                 // Chained call - get the root type
@@ -276,14 +275,30 @@ object TypePresentationUtil {
         }
     }
 
-    private fun inferTypeFromCallExpression(expression: DartReferenceExpression): String? {
+    private fun inferTypeFromReferenceExpression(expression: DartReferenceExpression): String? {
         // Simple constructor: Foo() -> Foo
-        if (expression.children.isEmpty() && expression !is DartId) {
+        if (expression.children.isEmpty()) {
             return expression.text
         }
-        return when (val child = expression.firstChild) {
-            is DartReferenceExpression -> inferTypeFromCallExpression(child)
+        return when (val child = expression.lastChild) {
+            is DartId -> inferTypeFromIdAndReferenceExpression(expression)
+            is DartReferenceExpression -> inferTypeFromReferenceExpression(child)
             else -> expression.text
+        }
+    }
+
+    private fun inferTypeFromIdAndReferenceExpression(expression: DartReferenceExpression): String? {
+        return when (val declaration = expression.resolve()?.parent) {
+            is DartClassDefinition -> declaration.componentName.text
+            is DartFactoryConstructorDeclaration -> declaration.type?.text
+                ?: declaration.componentNameList.firstOrNull()?.text
+
+            is DartFunctionDeclarationWithBody -> declaration.returnType?.text
+            is DartFunctionDeclarationWithBodyOrNative -> declaration.returnType?.text
+            is DartGetterDeclaration -> declaration.returnType?.text
+            is DartMethodDeclaration -> declaration.returnType?.text ?: declaration.componentName?.text
+            is DartNamedConstructorDeclaration -> declaration.componentName?.text
+            else -> null
         }
     }
 
@@ -1016,7 +1031,7 @@ object TypePresentationUtil {
      */
     private fun inferTypeFromExpression(expression: PsiElement): String? {
         return when (expression) {
-            is DartCallExpression -> inferTypeFromCallExpression(expression)
+            is DartCallExpression -> inferTypeFromReferenceExpression(expression)
             is DartReferenceExpression -> inferTypeFromReference(expression)
             is DartStringLiteralExpression -> "String"
             is DartListLiteralExpression -> inferListTypePsi(expression)
@@ -1050,7 +1065,7 @@ object TypePresentationUtil {
     /**
      * Infer type from call expression PSI using enhanced analysis
      */
-    private fun inferTypeFromCallExpression(callExpr: DartCallExpression): String? {
+    private fun inferTypeFromReferenceExpression(callExpr: DartCallExpression): String? {
         val expression = callExpr.expression
         val methodText = callExpr.text
         
