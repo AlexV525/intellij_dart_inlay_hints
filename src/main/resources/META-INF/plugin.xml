@@ -28,6 +28,13 @@
         implementationClass="com.alexv525.dart.inlay.DartVariableTypeInlayHintsProvider"/>
     <postStartupActivity
         implementation="com.alexv525.dart.inlay.DartAnalysisListener"/>
+    <projectConfigurable 
+        parentId="editor.preferences.appearance" 
+        id="dart.inlay.settings"
+        displayName="Dart Inlay Hints"
+        instance="com.alexv525.dart.inlay.settings.DartInlaySettingsConfigurable"/>
+    <applicationService
+        serviceImplementation="com.alexv525.dart.inlay.settings.DartInlaySettings"/>
   </extensions>
 
   <resource-bundle>messages.DartInlayBundle</resource-bundle>

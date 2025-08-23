@@ -88,20 +88,24 @@ private class DartVariableTypeInlayHintsCollector(editor: Editor) : FactoryInlay
     private val processedOffsets = mutableSetOf<Int>()
 
     override fun collect(element: PsiElement, editor: Editor, sink: InlayHintsSink): Boolean {
-        // Process only the specific element, not the entire file
-        val hint = PsiVariableTypeHintCalculator.calculateForElement(element)
+        // Check if we should skip processing due to dumb mode
+        if (com.intellij.openapi.project.DumbService.isDumb(element.project)) {
+            return false
+        }
 
-        if (hint != null) {
-            val (offset, hintText) = hint
+        // Calculate hints for this element
+        val hints = PsiVariableTypeHintCalculator.calculateAllHintsForElement(element)
 
+        // Process all hints for this element
+        for ((offset, hintText) in hints) {
             // Only add the hint if we haven't processed this offset yet
             if (offset !in processedOffsets) {
                 processedOffsets.add(offset)
 
-                // Add the hint at the specified offset with proper inlay hint styling
+                // Add the hint at the specified offset with proper inlay hint styling for PREFIX format
                 sink.addInlineElement(
                     offset = offset,
-                    relatesToPrecedingText = true,
+                    relatesToPrecedingText = false,  // PREFIX hints go before the text
                     presentation = createPresentation(editor, hintText),
                     placeAtTheEndOfLine = false,
                 )
