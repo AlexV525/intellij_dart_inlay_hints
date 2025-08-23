@@ -526,6 +526,14 @@ object TypePresentationUtil {
                 }
             }
 
+            psiContext is DartPatternVariableDeclaration -> {
+                val callExpression = psiContext.lastChild as? DartCallExpression
+                val reference = callExpression?.expression as? DartReferenceExpression
+                val declaration = reference?.resolve()?.parent as? DartFunctionDeclarationWithBodyOrNative
+                val types = declaration?.returnType?.text?.removePrefix("(")?.removeSuffix(")")?.split(",")
+                return types ?: emptyList()
+            }
+
             else -> emptyList()
         }
     }
@@ -563,7 +571,7 @@ object TypePresentationUtil {
             is DartReferenceExpression -> {
                 // Direct method call like toString()
                 val methodName = expression.text
-                return getKnownMethodReturnType(methodName)
+                return getKnownMethodReturnType(methodName) ?: inferTypeFromReferenceExpression(expression)
             }
 
             is DartCallExpression -> {
