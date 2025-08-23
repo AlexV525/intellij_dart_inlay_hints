@@ -132,6 +132,16 @@ object TypePresentationUtil {
 
             else -> null
         }
+        return type ?: when (psiContext) {
+            is DartVarDeclarationList -> {
+                val expression = psiContext.varInit?.expression
+                if (expression is DartReferenceExpression) {
+                    inferTypeFromReferenceExpression(expression)
+                } else null
+            }
+
+            else -> null
+        }
     }
 
     /**
