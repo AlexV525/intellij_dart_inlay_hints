@@ -79,9 +79,11 @@ object TypePresentationUtil {
      * Returns null if type cannot be confidently determined.
      */
     fun getTypeFromLiteral(literalText: String, psiContext: PsiElement? = null): String? {
-        val text = literalText.trim().replace("\n", "")
+        var text = literalText.trim().replace("\n", "")
+        val awaits = text.startsWith("await ")
+        text = text.removePrefix("await ")
 
-        val type = when {
+        var type = when {
             // String literals
             text.startsWith('"') && text.endsWith('"') -> "String"
             text.startsWith("'") && text.endsWith("'") -> "String"
@@ -119,21 +121,20 @@ object TypePresentationUtil {
             // Property access patterns: obj.prop, this.field, etc.
             text.contains(".") && !text.contains("(") && !text.contains("[") -> inferPropertyType(text, psiContext)
 
-            // Constructor calls
+            // Constructor or method calls
             text.matches(Regex("^\\w+(\\.\\w+)?\\(.*\\)$")) -> inferConstructorType(text, psiContext)
 
             else -> null
         }
-        return type ?: when (psiContext) {
-            is DartVarDeclarationList -> {
-                val expression = psiContext.varInit?.expression
-                if (expression is DartReferenceExpression) {
-                    inferTypeFromReferenceExpression(expression)
-                } else null
-            }
-
-            else -> null
+        if (type == null) {
+            type = inferTypeFromPsiElement(psiContext)
         }
+        Regex("^Future(<(.*)>)?$").run {
+            if (type?.matches(this) == true && awaits) {
+                type = this.find(type)?.groups?.get(2)?.value
+            }
+        }
+        return type
     }
 
     /**
@@ -282,16 +283,49 @@ object TypePresentationUtil {
     }
 
     private fun inferTypeFromIdAndReferenceExpression(expression: DartReferenceExpression): String? {
-        return when (val declaration = expression.resolve()?.parent) {
-            is DartClassDefinition -> declaration.componentName.text
-            is DartFactoryConstructorDeclaration -> declaration.type?.text
-                ?: declaration.componentNameList.firstOrNull()?.text
+        return expression.resolve()?.parent?.let { inferTypeFromPsiElement(it) }
+    }
 
-            is DartFunctionDeclarationWithBody -> declaration.returnType?.text
-            is DartFunctionDeclarationWithBodyOrNative -> declaration.returnType?.text
-            is DartGetterDeclaration -> declaration.returnType?.text
-            is DartMethodDeclaration -> declaration.returnType?.text ?: declaration.componentName?.text
-            is DartNamedConstructorDeclaration -> declaration.componentName?.text
+    private fun inferTypeFromPsiElement(element: PsiElement?): String? {
+        return when (element) {
+            is DartClassDefinition -> element.componentName.text
+            is DartFactoryConstructorDeclaration -> element.type?.text
+                ?: element.componentNameList.firstOrNull()?.text
+
+            is DartFunctionDeclarationWithBody -> element.returnType?.text
+            is DartFunctionDeclarationWithBodyOrNative -> element.returnType?.text
+            is DartGetterDeclaration -> element.returnType?.text
+            is DartMethodDeclaration -> {
+                var type = element.returnType?.text
+                if (type != null) {
+                    val typeParameters = element.typeParameters ?: element.returnType?.type?.typeArguments
+                    if (typeParameters != null) {
+                        type = type.replace(typeParameters.text, "")
+                    }
+                }
+                type ?: element.componentName?.text
+            }
+            is DartNamedConstructorDeclaration -> element.componentName?.text
+            is DartVarDeclarationList -> {
+                val expression: PsiElement? = element.varInit?.expression
+                if (expression is DartAwaitExpression) {
+                    val newExpression = expression.expression as? DartNewExpression
+                    val type = newExpression?.typeArguments?.typeList?.typeList?.firstOrNull()?.text
+                    if (type != null) {
+                        return type
+                    }
+                }
+                if (expression is DartCallExpression) {
+                    val type = resolveMethodReturnType(expression)
+                    if (type != null) {
+                        return type
+                    }
+                }
+                if (expression is DartReferenceExpression) {
+                    inferTypeFromReferenceExpression(expression)
+                } else null
+            }
+
             else -> null
         }
     }
@@ -559,18 +593,16 @@ object TypePresentationUtil {
      * Resolve method return type from PSI using proper analysis
      */
     private fun resolveMethodReturnType(methodCall: DartCallExpression): String? {
-        val expression = methodCall.expression
-
-        when (expression) {
+        var type: String? = when (val expression = methodCall.expression) {
             is DartReferenceExpression -> {
                 // Direct method call like toString()
                 val methodName = expression.text
-                return getKnownMethodReturnType(methodName) ?: inferTypeFromReferenceExpression(expression)
+                getKnownMethodReturnType(methodName) ?: inferTypeFromReferenceExpression(expression)
             }
 
             is DartCallExpression -> {
                 // Method chain like obj.method().otherMethod()
-                return resolveMethodReturnType(expression)
+                resolveMethodReturnType(expression)
             }
 
             else -> {
@@ -583,18 +615,26 @@ object TypePresentationUtil {
                     if (parts.size >= 2) {
                         val lastPart = parts.last()
                         val methodName = lastPart.substringBefore("(")
-                        return getKnownMethodReturnType(methodName)
+                        getKnownMethodReturnType(methodName)
                     }
                 }
 
                 // Try to resolve factory constructors
                 if (isFactoryConstructor(methodCall)) {
-                    return resolveFactoryConstructorType(methodCall)
+                    resolveFactoryConstructorType(methodCall)
                 }
 
-                return null
+                null
             }
         }
+
+        // Append typed arguments
+        val typedArguments = methodCall.typeArgumentsList
+        if (typedArguments.isNotEmpty() && type?.contains("<") == false) {
+            type += "<${typedArguments.joinToString(", ") { it.text.removePrefix("<").removeSuffix(">") }}>"
+        }
+
+        return type
     }
 
     /**
@@ -619,9 +659,7 @@ object TypePresentationUtil {
      */
     private fun isFactoryConstructor(callExpr: DartCallExpression): Boolean {
         // Get the reference being called
-        val expression = callExpr.expression
-
-        when (expression) {
+        when (val expression = callExpr.expression) {
             is DartReferenceExpression -> {
                 // Simple constructor call like MyClass() or named like MyClass.create()
                 val referenceName = expression.text
@@ -643,9 +681,7 @@ object TypePresentationUtil {
      * Resolve factory constructor type using PSI analysis
      */
     private fun resolveFactoryConstructorType(callExpr: DartCallExpression): String? {
-        val expression = callExpr.expression
-
-        when (expression) {
+        when (val expression = callExpr.expression) {
             is DartReferenceExpression -> {
                 val referenceName = expression.text
                 return extractClassNameFromConstructor(referenceName)
@@ -682,12 +718,10 @@ object TypePresentationUtil {
      * Find constructor declaration PSI element using manual traversal
      */
     private fun findConstructorDeclaration(context: PsiElement, constructorRef: String): PsiElement? {
-        val className = extractClassNameFromConstructor(constructorRef)
-        if (className == null) return null
+        val className = extractClassNameFromConstructor(constructorRef) ?: return null
 
         // Find the class declaration first
-        val classDeclaration = findClassDeclaration(context, className)
-        if (classDeclaration == null) return null
+        val classDeclaration = findClassDeclaration(context, className) ?: return null
 
         // Look for the constructor within the class
         return findConstructorInClass(classDeclaration, constructorRef)
@@ -816,7 +850,7 @@ object TypePresentationUtil {
     private fun parseRecordComponents(content: String, psiContext: PsiElement? = null): List<String?> {
         val components = mutableListOf<String?>()
         var depth = 0
-        var current = StringBuilder()
+        val current = StringBuilder()
 
         for (char in content) {
             when (char) {
@@ -1037,42 +1071,11 @@ object TypePresentationUtil {
     }
 
     /**
-     * Infer type from any Dart expression PSI element
-     */
-    /**
-     * Infer type from any Dart expression PSI element using comprehensive analysis
-     */
-    private fun inferTypeFromExpression(expression: PsiElement): String? {
-        return when (expression) {
-            is DartCallExpression -> inferTypeFromReferenceExpression(expression)
-            is DartReferenceExpression -> inferTypeFromReference(expression)
-            is DartStringLiteralExpression -> "String"
-            is DartListLiteralExpression -> inferListTypePsi(expression)
-            else -> {
-                // Fallback to text-based analysis
-                val text = expression.text?.trim() ?: return null
-                getTypeFromLiteral(text)
-            }
-        }
-    }
-
-    /**
      * Infer type from list literal PSI element
      */
     private fun inferListTypePsi(listExpr: PsiElement): String {
         val text = listExpr.text
         return inferListType(text)
-    }
-
-    /**
-     * Infer type from set or map literal PSI (simplified)
-     */
-    private fun inferSetOrMapType(setOrMapExpr: PsiElement): String {
-        val text = setOrMapExpr.text
-        return when {
-            text.contains(":") -> inferMapType(text)
-            else -> inferSetType(text)
-        }
     }
 
     /**

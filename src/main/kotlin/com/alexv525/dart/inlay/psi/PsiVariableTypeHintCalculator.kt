@@ -19,38 +19,29 @@ import com.jetbrains.lang.dart.psi.*
 object PsiVariableTypeHintCalculator {
 
     /**
-     * Calculate variable type hint for a specific element.
-     * Returns (offset, hint_text) pair or null if no hint should be shown.
-     */
-    fun calculateForElement(element: PsiElement): Pair<Int, String>? {
-        val hints = calculateAllHintsForElement(element)
-        return hints.firstOrNull()
-    }
-
-    /**
      * Calculate all variable type hints for a specific element.
      * Returns list of (offset, hint_text) pairs.
      */
-    fun calculateAllHintsForElement(element: PsiElement): List<Pair<Int, String>> {
+    fun calculateAllHintsForElement(element: PsiElement): Set<Pair<Int, String>> {
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
 
         // Skip if variable type hints are disabled
-        if (!settings.enableVariableTypeHints) return emptyList()
+        if (!settings.enableVariableTypeHints) return emptySet()
 
-        // Skip predicating the whole Dart file.
-        if (element is DartFile) {
-            return emptyList()
+        // Skip predicating the unnecessary PSIs.
+        when (element) {
+            is DartFile, is DartArgumentList, is DartClassDefinition, is DartClassMembers, is DartFunctionExpressionBody, is DartLazyParseableBlock, is DartStatements -> return emptySet()
         }
 
         // Skip comments entirely to prevent parsing issues
         if (element is PsiComment || isInsideComment(element)) {
-            return emptyList()
+            return emptySet()
         }
 
-        val text = element.text?.trim() ?: return emptyList()
+        val text = element.text?.trim() ?: return emptySet()
 
         // Skip elements that are too small to contain meaningful variable declarations
-        if (text.length < 3) return emptyList()
+        if (text.length < 3) return emptySet()
 
         // More permissive filtering - look for any variable-related keywords
         val hasVarKeywords = text.contains("var ") || text.contains("final ") || text.contains("late ")
@@ -58,10 +49,10 @@ object PsiVariableTypeHintCalculator {
         val hasParenVar = text.contains("(var ") || text.contains("(final ") // for-each inside parens
 
         if (!hasVarKeywords && !hasForLoop && !hasParenVar) {
-            return emptyList()
+            return emptySet()
         }
 
-        val hints = mutableListOf<Pair<Int, String>>()
+        val hints = mutableSetOf<Pair<Int, String>>()
 
         // Focus on patterns that actually work reliably
 
@@ -75,12 +66,12 @@ object PsiVariableTypeHintCalculator {
         hints.addAll(calculateForEachLoopHintsImproved(element, text))
 
         // 4. Specific PSI impls recognition
-        if (element is DartVarDeclarationList) {
+        if (hints.isEmpty() && element is DartVarDeclarationList) {
             val callExpression = element.lastChild.children[0]
             val expressionText = callExpression.text
             calculateSimpleVariableHint(callExpression, expressionText)?.let { hints.add(it) }
         }
-        if (element is DartVarAccessDeclaration) {
+        if (hints.isEmpty() && element is DartVarAccessDeclaration) {
             val callExpression = (element.parent as? DartVarDeclarationList)?.varInit?.expression
             callExpression?.let { e -> calculateSimpleVariableHint(e, e.text)?.let { hints.add(it) } }
         }
@@ -106,8 +97,8 @@ object PsiVariableTypeHintCalculator {
     /**
      * Calculate hints for pattern/destructuring assignments: var (a, b) = (1, 's')
      */
-    private fun calculateDestructuringHints(element: PsiElement, text: String): List<Pair<Int, String>> {
-        val hints = mutableListOf<Pair<Int, String>>()
+    private fun calculateDestructuringHints(element: PsiElement, text: String): Set<Pair<Int, String>> {
+        val hints = mutableSetOf<Pair<Int, String>>()
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
 
         // Pattern: (var|final) (name1, name2, ...) = expression
@@ -137,7 +128,7 @@ object PsiVariableTypeHintCalculator {
                 if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
 
                 // Find position before this variable name for prefix placement
-                val varIndex = match.range.start + match.value.indexOf(varName, match.value.indexOf("("))
+                val varIndex = match.range.first + match.value.indexOf(varName, match.value.indexOf("("))
                 val offset = element.textRange.startOffset + varIndex
                 hints.add(offset to formattedType)
             }
@@ -174,7 +165,7 @@ object PsiVariableTypeHintCalculator {
         if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) return null
 
         // Find position before variable name for prefix placement
-        val varNameIndex = match.range.start + match.value.indexOf(varName)
+        val varNameIndex = match.range.first + match.value.indexOf(varName)
         val offset = element.textRange.startOffset + varNameIndex
         return offset to formattedType
     }
@@ -204,7 +195,7 @@ object PsiVariableTypeHintCalculator {
 
         // Get broader context to look for object declaration
         val contextElement = getContextElement(element, 5) // Go up more levels
-        val contextText = contextElement?.text ?: return null
+        val contextText = contextElement.text ?: return null
 
         // Look for the declaration of the object
         val objDeclPattern = Regex("""(?:var|final|late|const)\s+${Regex.escape(objectName)}\s*=\s*(\w+)\s*\(""")
@@ -231,18 +222,11 @@ object PsiVariableTypeHintCalculator {
     }
 
     /**
-     * Infer type from expression text using simple heuristics.
-     */
-    private fun inferTypeFromExpressionText(expression: String): String? {
-        return TypePresentationUtil.getTypeFromLiteral(expression)
-    }
-
-    /**
      * Simplified for-each loop hints calculation.
      * Uses a single, reliable approach to avoid context confusion and variable caching issues.
      */
-    private fun calculateForEachLoopHintsImproved(element: PsiElement, text: String): List<Pair<Int, String>> {
-        val hints = mutableListOf<Pair<Int, String>>()
+    private fun calculateForEachLoopHintsImproved(element: PsiElement, text: String): Set<Pair<Int, String>> {
+        val hints = mutableSetOf<Pair<Int, String>>()
         val settings = com.alexv525.dart.inlay.settings.DartInlaySettings.getInstance()
 
         // Single pattern approach: Look for complete for-each loops in the current element only
@@ -267,7 +251,7 @@ object PsiVariableTypeHintCalculator {
             if (!TypePresentationUtil.meetsComplexityRequirement(formattedType)) continue
 
             // Find position before variable name for prefix placement
-            val varNameIndex = match.range.start + match.value.indexOf(varName)
+            val varNameIndex = match.range.first + match.value.indexOf(varName)
             val offset = element.textRange.startOffset + varNameIndex
             hints.add(offset to formattedType)
         }
@@ -279,7 +263,7 @@ object PsiVariableTypeHintCalculator {
     /**
      * Get context element by traversing up the PSI tree
      */
-    private fun getContextElement(element: PsiElement, levels: Int): PsiElement? {
+    private fun getContextElement(element: PsiElement, levels: Int): PsiElement {
         var current = element
         repeat(levels) {
             current = current.parent ?: return current
