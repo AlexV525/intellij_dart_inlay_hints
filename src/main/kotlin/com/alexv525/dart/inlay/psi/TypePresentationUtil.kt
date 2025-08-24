@@ -296,15 +296,29 @@ object TypePresentationUtil {
             is DartFunctionDeclarationWithBodyOrNative -> element.returnType?.text
             is DartGetterDeclaration -> element.returnType?.text
             is DartMethodDeclaration -> {
-                var type = element.returnType?.text
-                if (type != null) {
-                    val typeParameters = element.typeParameters ?: element.returnType?.type?.typeArguments
-                    if (typeParameters != null) {
-                        type = type.replace(typeParameters.text, "")
-                    }
+                if (element.isSetter) {
+                    return null
                 }
-                type ?: element.componentName?.text
+                element.returnType?.text?.let { returnType ->
+                    val genericNames = mutableSetOf<String>()
+                    // Collect generic parameters from the method itself
+                    element.typeParameters?.typeParameterList?.forEach {
+                        it.componentName.name?.let { name -> genericNames.add(name) }
+                    }
+                    // Collect generic parameters from the enclosing class(es)
+                    var parent = element.parent
+                    while (parent != null) {
+                        if (parent is DartClassDefinition) {
+                            parent.typeParameters?.typeParameterList?.forEach {
+                                it.componentName.name?.let { name -> genericNames.add(name) }
+                            }
+                        }
+                        parent = parent.parent
+                    }
+                    stripGenericParameters(returnType, genericNames)
+                }
             }
+
             is DartNamedConstructorDeclaration -> element.componentName?.text
             is DartVarDeclarationList -> {
                 val expression: PsiElement? = element.varInit?.expression
@@ -328,6 +342,68 @@ object TypePresentationUtil {
 
             else -> null
         }
+    }
+
+    /**
+     * Recursively strips generic type parameters from a type string for cleaner display.
+     * e.g., "Future<Response<T>>" with generic "T" becomes "Future<Response>".
+     * e.g., "List<T>" with generic "T" becomes "List".
+     * e.g., "T" with generic "T" becomes null to suppress the hint.
+     *
+     * @param typeString The full type string to process.
+     * @param genericNames A set of all in-scope generic parameter names.
+     * @return A cleaned type string, or null if the type is purely generic.
+     */
+    private fun stripGenericParameters(typeString: String, genericNames: Set<String>): String? {
+        if (genericNames.isEmpty()) return typeString
+
+        // If the type itself is a generic parameter, return null to suppress the hint.
+        if (typeString in genericNames) return null
+
+        val baseType = typeString.substringBefore('<')
+        val argsString = typeString.substringAfter('<', "").removeSuffix(">")
+
+        // If there are no generics, or it's a non-generic type, return as is.
+        if (argsString.isEmpty()) return typeString
+
+        val args = splitTopLevelArgs(argsString)
+
+        val newArgs = args
+            .mapNotNull { arg -> stripGenericParameters(arg.trim(), genericNames) }
+            .filter { it.isNotEmpty() }
+
+        return if (newArgs.isEmpty()) {
+            baseType
+        } else {
+            "$baseType<${newArgs.joinToString(", ")}>"
+        }
+    }
+
+    /**
+     * Splits a string of generic arguments by commas, respecting nested generics.
+     * e.g., "String, Map<K, V>" -> ["String", "Map<K, V>"]
+     */
+    private fun splitTopLevelArgs(argsString: String): List<String> {
+        val result = mutableListOf<String>()
+        var depth = 0
+        val current = StringBuilder()
+
+        for (char in argsString) {
+            when (char) {
+                '<' -> depth++
+                '>' -> depth--
+                ',' -> if (depth == 0) {
+                    result.add(current.toString())
+                    current.clear()
+                    continue
+                }
+            }
+            current.append(char)
+        }
+        if (current.isNotEmpty()) {
+            result.add(current.toString())
+        }
+        return result
     }
 
     /**
@@ -596,7 +672,7 @@ object TypePresentationUtil {
         var type: String? = when (val expression = methodCall.expression) {
             is DartReferenceExpression -> {
                 // Direct method call like toString()
-                val methodName = expression.text
+                val methodName = expression.text.split(".").lastOrNull() ?: ""
                 getKnownMethodReturnType(methodName) ?: inferTypeFromReferenceExpression(expression)
             }
 
